@@ -12,3 +12,6 @@ IMPORTANT:
 - Uploaded video files remain stored locally on this device and are not uploaded to GitHub.
 - YouTube embedding is subject to the video's owner permissions.
 - Free Quiz Mode has a small built-in GK bank and a basic notes-based question generator. It does not use an AI API.
+
+
+Version 4 fixes: subject Links subfolders now store links in their own child folder IDs; default subjects are restored if missing; Home folders use a responsive grid; planner tasks have Delete buttons; quiz start has safer validation. Existing IndexedDB data is retained. Do not clear browser/app storage.
