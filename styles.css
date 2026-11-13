@@ -4,3 +4,27 @@
 .brand-mark{overflow:hidden;background:#111}.brand-mark img{width:100%;height:100%;object-fit:cover}.folder-create{grid-template-columns:minmax(0,1fr) 42px auto}.folder-parent{grid-column:1/-1}.home-folder-card{display:grid;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:7px}.home-folder-card .home-folder{border:0;padding:7px;background:transparent}.home-folder small{line-height:1.4}.subfolder-link{margin-left:24px;text-align:left;background:#10172e;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:7px;font-size:10px}
 
 .nested-folder-wrap{margin-left:13px;border-left:1px solid var(--line);padding-left:7px}.nested-folder-wrap .home-folder-card{padding:5px;background:#10172e}
+.account-panel {
+  margin: 18px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.account-panel h3 {
+  margin-top: 0;
+  font-size: 16px;
+}
+.account-panel button {
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #10152b;
+  font-weight: 800;
+}
+.account-panel p {
+  font-size: 12px;
+  color: var(--muted);
+}
