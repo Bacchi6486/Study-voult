@@ -51,5 +51,12 @@
 <dialog id="playerDialog" class="player-dialog"><div class="dialog-head"><div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div><button id="closePlayer" class="icon-btn">✕</button></div><video id="videoPlayer" controls playsinline></video><p class="note">Video title can be edited from the lecture list using “Edit title”.</p><p class="note">Playback position is remembered on this device.</p><button id="deleteVideoBtn" class="danger full">Delete saved video</button></dialog>
 <dialog id="youtubeDialog" class="player-dialog"><div class="dialog-head"><div><b id="youtubePlayerTitle">YouTube video</b><small>Playing inside StudyVault</small></div><button id="closeYoutube" class="icon-btn">✕</button></div><div class="youtube-frame"><iframe id="youtubeFrame" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div><p class="note">Some videos do not allow embedding. If blocked by the owner, that video cannot play inside the app.</p></dialog>
 <dialog id="settingsDialog"><div class="dialog-head"><b>StudyVault settings</b><button class="icon-btn" id="closeSettings">✕</button></div><p class="muted small">Your library is stored in this browser on this device. Do not clear browser data unless you have backed up your content.</p><button id="exportSettingsBtn" class="secondary full">Export planner backup</button></dialog>
-<div id="toast" role="status" class="toast"></div><script src="app.js"></script>
+<div class="account-panel">
+  <h3>StudyVault Account</h3>
+  <p id="accountStatus">Checking account...</p>
+  <button id="accountAction">Sign in with Google</button>
+  <p id="accountNote">Owner: bachhi6486@gmail.com</p>
+</div>
+  <div id="toast" role="status" class="toast"></div><script src="app.js"></script>
+  <script type="module" src="firebase-auth.js"></script>
 </body></html>
