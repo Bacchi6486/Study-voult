@@ -1,115 +1,55 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#10152b">
-  <meta name="description" content="Your personal video study library and automatic study planner.">
-  <title>StudyVault</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10152b"><meta name="description" content="Your personal study library and planner.">
+<title>StudyVault</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><div class="brand-mark">S</div><div><strong>StudyVault</strong><small>Your personal study space</small></div></div>
-    <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button>
-  </header>
-  <main>
-    <section class="hero">
-      <p class="eyebrow" id="todayLabel">YOUR STUDY SPACE</p>
-      <h1>Make today<br><span>count.</span></h1>
-      <p class="muted">Your lectures, timetable and progress in one place.</p>
-      <div class="stats">
-        <div class="stat"><b id="doneCount">0</b><span>Tasks done</span></div>
-        <div class="stat"><b id="videoCount">0</b><span>Videos saved</span></div>
-        <div class="stat"><b id="hoursCount">0h</b><span>Planned today</span></div>
-      </div>
-    </section>
-    <nav class="tabs" aria-label="Main navigation">
-      <button class="tab active" data-tab="home">⌂ <span>Home</span></button>
-      <button class="tab" data-tab="videos">▶ <span>Videos</span></button>
-      <button class="tab" data-tab="planner">▦ <span>Planner</span></button>
-      <button class="tab" data-tab="progress">◷ <span>Progress</span></button>
-    </nav>
-    <section id="home" class="page active">
-      <div class="section-head"><div><p class="eyebrow">OVERVIEW</p><h2>Today's plan</h2></div><button class="text-btn" data-go="planner">Edit plan →</button></div>
-      <div id="todayTasks" class="task-list"></div>
-      <div class="section-head gap-top"><div><p class="eyebrow">KEEP LEARNING</p><h2>Recently added</h2></div><button class="text-btn" data-go="videos">All videos →</button></div>
-      <div id="recentVideos" class="video-list"></div>
-      <div class="tip-card"><span>✦</span><div><b>Small steps add up.</b><p>Plan a focused session, then mark it complete.</p></div></div>
-    </section>
-    <section id="videos" class="page">
-      <div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Video lectures</h2></div></div>
-      <div class="folder-panel">
-        <div class="folder-panel-head"><div><b>Subject folders</b><small>Organise your lectures your way</small></div><span>📁</span></div>
-        <div id="folderChips" class="folder-chips"></div>
-        <div class="folder-tools">
-          <select id="folderFilter" aria-label="Filter videos by folder"><option value="all">All folders</option></select>
-          <select id="uploadFolder" aria-label="Choose upload folder"><option value="">Unsorted</option></select>
-        </div>
-        <div class="folder-create">
-          <input id="newFolderName" maxlength="40" placeholder="New folder name">
-          <input id="newFolderColor" type="color" value="#9a8cff" aria-label="Folder color">
-          <button id="addFolderBtn" class="small-btn">＋ Add</button>
-        </div>
-        <div class="folder-manage">
-          <select id="manageFolder" aria-label="Choose folder to customise"><option value="">Choose a folder to customise</option></select>
-          <input id="editFolderName" maxlength="40" placeholder="Rename selected folder">
-          <input id="editFolderColor" type="color" value="#9a8cff" aria-label="New folder color">
-          <button id="saveFolderBtn" class="small-btn">Save changes</button>
-          <button id="deleteFolderBtn" class="small-btn danger-outline">Delete folder</button>
-        </div>
-        <p class="folder-help">Deleting a folder moves its videos to Unsorted. It does not delete the videos.</p>
-      </div>
-      <label class="upload-card" for="videoInput"><span class="upload-icon">＋</span><span><b>Add a lecture video</b><small>Choose a video stored on this phone</small></span><span class="upload-arrow">↗</span></label>
-      <input id="videoInput" type="file" accept="video/*" multiple hidden>
-      <div class="field-row"><input id="videoSearch" type="search" placeholder="Search lectures or subjects…"></div>
-      <div id="allVideos" class="video-list"></div>
-      <p class="note">Videos are saved in this browser on this device. Large files may exceed your phone/browser storage quota. Keep your original videos as backups.</p>
-    </section>
-    <section id="planner" class="page">
-      <div class="section-head"><div><p class="eyebrow">PLAN SMARTER</p><h2>Study planner</h2></div></div>
-      <div class="panel">
-        <h3>Build your daily timetable</h3>
-        <p class="muted small">Tell StudyVault how much time you have. It will distribute your pending study tasks across that time.</p>
-        <div class="form-grid">
-          <label>Available hours per day<input id="availableHours" type="number" min="1" max="16" step="0.5" value="4"></label>
-          <label>Start time<input id="startTime" type="time" value="07:00"></label>
-        </div>
-        <button id="generateBtn" class="primary full">Generate my timetable</button>
-      </div>
-      <div class="section-head gap-top"><div><p class="eyebrow">YOUR TASKS</p><h2>Study targets</h2></div></div>
-      <form id="taskForm" class="panel">
-        <label>Subject<input id="subjectInput" required maxlength="50" placeholder="e.g. Indian Polity"></label>
-        <label>Topic / task<input id="topicInput" required maxlength="90" placeholder="e.g. Fundamental Rights"></label>
-        <div class="form-grid">
-          <label>Duration (minutes)<input id="durationInput" type="number" min="5" max="600" value="60" required></label>
-          <label>Priority<select id="priorityInput"><option value="2">Normal</option><option value="3">High</option><option value="1">Low</option></select></label>
-        </div>
-        <button class="primary full" type="submit">＋ Add study target</button>
-      </form>
-      <div id="plannerTasks" class="task-list"></div>
-    </section>
-    <section id="progress" class="page">
-      <div class="section-head"><div><p class="eyebrow">YOUR CONSISTENCY</p><h2>Progress</h2></div></div>
-      <div class="progress-card"><div class="progress-ring" id="progressRing"><div><b id="progressPercent">0%</b><small>completed</small></div></div><div><h3 id="progressTitle">A fresh start</h3><p class="muted small" id="progressText">Add a study target to begin tracking your progress.</p></div></div>
-      <div class="stats light-stats"><div class="stat"><b id="totalTasks">0</b><span>Total tasks</span></div><div class="stat"><b id="completedTasks">0</b><span>Completed</span></div><div class="stat"><b id="totalMinutes">0</b><span>Planned min</span></div></div>
-      <div class="panel gap-top"><h3>Backup reminder</h3><p class="muted small">Your planner and video library are stored in this browser. Export your study data regularly and keep original video files somewhere safe.</p><button id="exportBtn" class="secondary full">Export planner backup (JSON)</button></div>
-    </section>
-  </main>
-  <dialog id="playerDialog" class="player-dialog">
-    <div class="dialog-head"><div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div><button id="closePlayer" class="icon-btn">✕</button></div>
-    <video id="videoPlayer" controls playsinline></video>
-    <p class="note">Playback position is remembered on this device while the video remains saved.</p>
-    <button id="deleteVideoBtn" class="danger full">Delete saved video</button>
-  </dialog>
-  <dialog id="settingsDialog">
-    <div class="dialog-head"><b>StudyVault settings</b><button class="icon-btn" id="closeSettings">✕</button></div>
-    <p class="muted small">This first version works locally on this phone. Do not clear browser data unless you have exported your planner and backed up your videos.</p>
-    <button id="exportSettingsBtn" class="secondary full">Export planner backup</button>
-  </dialog>
-  <div id="toast" role="status" class="toast"></div>
-  <script src="app.js"></script>
-</body>
-</html>
+<header class="topbar"><div class="brand"><div class="brand-mark">S</div><div><strong>StudyVault</strong><small>Your personal study space</small></div></div><button id="settingsBtn" class="icon-btn">⚙</button></header>
+<main>
+<section class="hero"><p class="eyebrow" id="todayLabel">YOUR STUDY SPACE</p><h1>Make today<br><span>count.</span></h1><p class="muted">Your lectures, links, quizzes and timetable in one place.</p>
+<div class="stats"><div class="stat"><b id="doneCount">0</b><span>Tasks done</span></div><div class="stat"><b id="videoCount">0</b><span>Videos saved</span></div><div class="stat"><b id="hoursCount">0m</b><span>Planned today</span></div></div></section>
+<nav class="tabs"><button class="tab active" data-tab="home">⌂<span>Home</span></button><button class="tab" data-tab="videos">▶<span>Videos</span></button><button class="tab" data-tab="planner">▦<span>Planner</span></button><button class="tab" data-tab="progress">◷<span>Progress</span></button><button class="tab" data-tab="quiz">✦<span>Quiz</span></button></nav>
+
+<section id="home" class="page active">
+<div class="section-head"><div><p class="eyebrow">OVERVIEW</p><h2>Today's plan</h2></div><button class="text-btn" data-go="planner">Edit plan →</button></div><div id="todayTasks" class="task-list"></div>
+<div class="section-head gap-top"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Subject folders</h2></div><button class="text-btn" data-go="videos">Manage →</button></div><div id="homeFolders" class="home-folders"></div>
+<div class="section-head gap-top"><div><p class="eyebrow">PICK UP WHERE YOU LEFT</p><h2>Recently watched</h2></div></div><div id="recentlyWatched" class="video-list"></div>
+<div class="section-head gap-top"><div><p class="eyebrow">KEEP LEARNING</p><h2>Recently added</h2></div><button class="text-btn" data-go="videos">All videos →</button></div><div id="recentVideos" class="video-list"></div>
+<div class="tip-card"><span>✦</span><div><b>Small steps add up.</b><p>Plan a focused session, then mark it complete.</p></div></div></section>
+
+<section id="videos" class="page">
+<div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Video lectures</h2></div></div>
+<div class="folder-panel"><div class="folder-panel-head"><div><b>Subject folders</b><small>Each subject includes its own Links folder</small></div><span>📁</span></div><div id="folderChips" class="folder-chips"></div>
+<div class="folder-tools"><select id="folderFilter"><option value="all">All folders</option></select><select id="uploadFolder"><option value="">Unsorted</option></select></div>
+<div class="folder-create"><input id="newFolderName" maxlength="40" placeholder="New folder name"><input id="newFolderColor" type="color" value="#9a8cff"><button id="addFolderBtn" class="small-btn">＋ Add</button></div>
+<div class="folder-manage"><select id="manageFolder"><option value="">Choose a folder to customise</option></select><input id="editFolderName" maxlength="40" placeholder="Rename selected folder"><input id="editFolderColor" type="color" value="#9a8cff"><button id="saveFolderBtn" class="small-btn">Save changes</button><button id="deleteFolderBtn" class="small-btn danger-outline">Delete folder</button></div>
+<p class="folder-help">Deleting a folder moves its videos and links to Unsorted. Videos are not deleted.</p></div>
+<label class="upload-card" for="videoInput"><span class="upload-icon">＋</span><span><b>Add a lecture video</b><small>Choose a video stored on this phone</small></span><span class="upload-arrow">↗</span></label><input id="videoInput" type="file" accept="video/*" multiple hidden>
+<div class="panel"><h3>Save a YouTube link</h3><p class="muted small">Choose a subject, paste a YouTube URL and save it in that subject's Links folder.</p><label>Subject<select id="linkSubject"></select></label><label>Video title<input id="linkTitle" maxlength="100" placeholder="e.g. Fundamental Rights lecture"></label><label>YouTube URL<input id="youtubeUrl" type="url" placeholder="https://www.youtube.com/watch?v=..."></label><button id="saveLinkBtn" class="primary full">＋ Save YouTube link</button></div>
+<div class="section-head gap-top"><div><p class="eyebrow">SAVED LINKS</p><h2>Subject links</h2></div></div><div id="linksList" class="video-list"></div>
+<div class="field-row"><input id="videoSearch" type="search" placeholder="Search saved videos…"></div><div id="allVideos" class="video-list"></div><p class="note">Uploaded videos stay on this device. Keep original files as backups. YouTube playback depends on the video's embedding permissions.</p>
+</section>
+
+<section id="planner" class="page"><div class="section-head"><div><p class="eyebrow">PLAN SMARTER</p><h2>Study planner</h2></div></div>
+<div class="panel"><h3>Build your daily timetable</h3><p class="muted small">StudyVault distributes pending tasks across your available time.</p><div class="form-grid"><label>Available hours<input id="availableHours" type="number" min="1" max="16" step=".5" value="4"></label><label>Start time<input id="startTime" type="time" value="07:00"></label></div><button id="generateBtn" class="primary full">Generate my timetable</button></div>
+<div class="section-head gap-top"><div><p class="eyebrow">YOUR TASKS</p><h2>Study targets</h2></div></div><form id="taskForm" class="panel"><label>Subject<input id="subjectInput" required maxlength="50" placeholder="e.g. Indian Polity"></label><label>Topic / task<input id="topicInput" required maxlength="90" placeholder="e.g. Fundamental Rights"></label><div class="form-grid"><label>Duration (minutes)<input id="durationInput" type="number" min="5" max="600" value="60" required></label><label>Priority<select id="priorityInput"><option value="2">Normal</option><option value="3">High</option><option value="1">Low</option></select></label></div><button class="primary full" type="submit">＋ Add study target</button></form><div id="plannerTasks" class="task-list"></div></section>
+
+<section id="progress" class="page"><div class="section-head"><div><p class="eyebrow">YOUR CONSISTENCY</p><h2>Progress</h2></div></div><div class="progress-card"><div class="progress-ring" id="progressRing"><div><b id="progressPercent">0%</b><small>completed</small></div></div><div><h3 id="progressTitle">A fresh start</h3><p class="muted small" id="progressText">Add a study target to begin.</p></div></div><div class="stats light-stats"><div class="stat"><b id="totalTasks">0</b><span>Total tasks</span></div><div class="stat"><b id="completedTasks">0</b><span>Completed</span></div><div class="stat"><b id="totalMinutes">0</b><span>Planned min</span></div></div><div class="panel gap-top"><h3>Backup reminder</h3><p class="muted small">Planner data can be exported. Uploaded video files are not included in this backup.</p><button id="exportBtn" class="secondary full">Export planner backup (JSON)</button></div></section>
+
+<section id="quiz" class="page"><div class="section-head"><div><p class="eyebrow">STUDYVAULT QUIZ BOT</p><h2>Free Quiz Mode</h2></div><span class="pill">No API / No payment</span></div>
+<div class="panel"><p class="muted small">Create a quiz from your own notes, built-in General Knowledge questions, or both. Notes mode uses a simple offline question generator.</p>
+<label>Question source<select id="quizSource"><option value="mixed">Notes + General Knowledge</option><option value="notes">My notes</option><option value="gk">General Knowledge</option></select></label>
+<label>Subject / topic<select id="quizSubject"><option value="mixed">Mixed GK</option><option>Polity</option><option>Economics</option><option>Geography</option><option>History</option><option>Physics</option><option>Chemistry</option><option>Biology</option></select></label>
+<label>Difficulty<select id="quizDifficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+<label>Number of questions<select id="quizCount"><option>5</option><option>10</option><option>15</option></select></label>
+<label>Paste your notes<textarea id="quizNotes" rows="7" placeholder="Paste notes here. Use clear factual sentences for better questions."></textarea></label>
+<button id="startQuizBtn" class="primary full">Create my quiz</button></div><div id="quizArea"></div></section>
+</main>
+
+<dialog id="playerDialog" class="player-dialog"><div class="dialog-head"><div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div><button id="closePlayer" class="icon-btn">✕</button></div><video id="videoPlayer" controls playsinline></video><p class="note">Playback position is remembered on this device.</p><button id="deleteVideoBtn" class="danger full">Delete saved video</button></dialog>
+<dialog id="youtubeDialog" class="player-dialog"><div class="dialog-head"><div><b id="youtubePlayerTitle">YouTube video</b><small>Playing inside StudyVault</small></div><button id="closeYoutube" class="icon-btn">✕</button></div><div class="youtube-frame"><iframe id="youtubeFrame" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div><p class="note">Some videos do not allow embedding. If blocked by the owner, that video cannot play inside the app.</p></dialog>
+<dialog id="settingsDialog"><div class="dialog-head"><b>StudyVault settings</b><button class="icon-btn" id="closeSettings">✕</button></div><p class="muted small">Your library is stored in this browser on this device. Do not clear browser data unless you have backed up your content.</p><button id="exportSettingsBtn" class="secondary full">Export planner backup</button></dialog>
+<div id="toast" role="status" class="toast"></div><script src="app.js"></script>
+</body></html>
