@@ -15,7 +15,6 @@
     <div class="brand"><div class="brand-mark">S</div><div><strong>StudyVault</strong><small>Your personal study space</small></div></div>
     <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button>
   </header>
-
   <main>
     <section class="hero">
       <p class="eyebrow" id="todayLabel">YOUR STUDY SPACE</p>
@@ -27,14 +26,12 @@
         <div class="stat"><b id="hoursCount">0h</b><span>Planned today</span></div>
       </div>
     </section>
-
     <nav class="tabs" aria-label="Main navigation">
       <button class="tab active" data-tab="home">⌂ <span>Home</span></button>
       <button class="tab" data-tab="videos">▶ <span>Videos</span></button>
       <button class="tab" data-tab="planner">▦ <span>Planner</span></button>
       <button class="tab" data-tab="progress">◷ <span>Progress</span></button>
     </nav>
-
     <section id="home" class="page active">
       <div class="section-head"><div><p class="eyebrow">OVERVIEW</p><h2>Today's plan</h2></div><button class="text-btn" data-go="planner">Edit plan →</button></div>
       <div id="todayTasks" class="task-list"></div>
@@ -42,18 +39,35 @@
       <div id="recentVideos" class="video-list"></div>
       <div class="tip-card"><span>✦</span><div><b>Small steps add up.</b><p>Plan a focused session, then mark it complete.</p></div></div>
     </section>
-
     <section id="videos" class="page">
       <div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Video lectures</h2></div></div>
-      <label class="upload-card" for="videoInput"><span class="upload-icon">＋</span><span><b>Add a lecture video</b><small>Choose a video stored on this phone</small></span><span class="upload-arrow">↗</span></label>
-      <input id="videoInput" type="file" accept="video/*" hidden>
-      <div class="field-row">
-        <input id="videoSearch" type="search" placeholder="Search lectures or subjects…">
+      <div class="folder-panel">
+        <div class="folder-panel-head"><div><b>Subject folders</b><small>Organise your lectures your way</small></div><span>📁</span></div>
+        <div id="folderChips" class="folder-chips"></div>
+        <div class="folder-tools">
+          <select id="folderFilter" aria-label="Filter videos by folder"><option value="all">All folders</option></select>
+          <select id="uploadFolder" aria-label="Choose upload folder"><option value="">Unsorted</option></select>
+        </div>
+        <div class="folder-create">
+          <input id="newFolderName" maxlength="40" placeholder="New folder name">
+          <input id="newFolderColor" type="color" value="#9a8cff" aria-label="Folder color">
+          <button id="addFolderBtn" class="small-btn">＋ Add</button>
+        </div>
+        <div class="folder-manage">
+          <select id="manageFolder" aria-label="Choose folder to customise"><option value="">Choose a folder to customise</option></select>
+          <input id="editFolderName" maxlength="40" placeholder="Rename selected folder">
+          <input id="editFolderColor" type="color" value="#9a8cff" aria-label="New folder color">
+          <button id="saveFolderBtn" class="small-btn">Save changes</button>
+          <button id="deleteFolderBtn" class="small-btn danger-outline">Delete folder</button>
+        </div>
+        <p class="folder-help">Deleting a folder moves its videos to Unsorted. It does not delete the videos.</p>
       </div>
+      <label class="upload-card" for="videoInput"><span class="upload-icon">＋</span><span><b>Add a lecture video</b><small>Choose a video stored on this phone</small></span><span class="upload-arrow">↗</span></label>
+      <input id="videoInput" type="file" accept="video/*" multiple hidden>
+      <div class="field-row"><input id="videoSearch" type="search" placeholder="Search lectures or subjects…"></div>
       <div id="allVideos" class="video-list"></div>
       <p class="note">Videos are saved in this browser on this device. Large files may exceed your phone/browser storage quota. Keep your original videos as backups.</p>
     </section>
-
     <section id="planner" class="page">
       <div class="section-head"><div><p class="eyebrow">PLAN SMARTER</p><h2>Study planner</h2></div></div>
       <div class="panel">
@@ -77,7 +91,6 @@
       </form>
       <div id="plannerTasks" class="task-list"></div>
     </section>
-
     <section id="progress" class="page">
       <div class="section-head"><div><p class="eyebrow">YOUR CONSISTENCY</p><h2>Progress</h2></div></div>
       <div class="progress-card"><div class="progress-ring" id="progressRing"><div><b id="progressPercent">0%</b><small>completed</small></div></div><div><h3 id="progressTitle">A fresh start</h3><p class="muted small" id="progressText">Add a study target to begin tracking your progress.</p></div></div>
@@ -85,7 +98,6 @@
       <div class="panel gap-top"><h3>Backup reminder</h3><p class="muted small">Your planner and video library are stored in this browser. Export your study data regularly and keep original video files somewhere safe.</p><button id="exportBtn" class="secondary full">Export planner backup (JSON)</button></div>
     </section>
   </main>
-
   <dialog id="playerDialog" class="player-dialog">
     <div class="dialog-head"><div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div><button id="closePlayer" class="icon-btn">✕</button></div>
     <video id="videoPlayer" controls playsinline></video>
