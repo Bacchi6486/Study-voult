@@ -1,17 +1,18 @@
-StudyVault Update ZIP
-1. Extract this ZIP on your Android phone.
-2. Open your GitHub repository: https://github.com/Bacchi6486/Study-voult
-3. Open the repository root, choose Add file > Upload files.
-4. Upload index.html, app.js, styles.css and sw.js from this extracted folder.
-5. Commit changes to the main branch.
-6. Wait for GitHub Pages to publish, then fully close and reopen StudyVault.
+STUDYVAULT UPDATE V5
 
-IMPORTANT:
-- Do NOT delete the repository or clear browser/site data.
-- This update upgrades the existing IndexedDB database from version 2 to 3. Existing saved videos, planner tasks and folders are preserved.
-- Uploaded video files remain stored locally on this device and are not uploaded to GitHub.
-- YouTube embedding is subject to the video's owner permissions.
-- Free Quiz Mode has a small built-in GK bank and a basic notes-based question generator. It does not use an AI API.
+This update adds: editable saved-video titles; nested folders; per-folder lecture counts and video duration progress; a custom app icon from your supplied image; and fixes to the earlier folder/link/planner/quiz interface.
 
+INSTALL ON GITHUB PAGES (Android phone):
+1. Extract this ZIP.
+2. In your GitHub repository, upload and replace index.html, app.js, styles.css, and sw.js.
+3. Also upload the NEW files manifest.webmanifest, icon-192.png, and icon-512.png to the repository root.
+4. Commit changes and wait for the Actions deployment to show a green check.
+5. Close StudyVault fully and open the website in Chrome once.
+6. For the new icon, Android may need the PWA shortcut to be added again after the manifest refreshes.
 
-Version 4 fixes: subject Links subfolders now store links in their own child folder IDs; default subjects are restored if missing; Home folders use a responsive grid; planner tasks have Delete buttons; quiz start has safer validation. Existing IndexedDB data is retained. Do not clear browser/app storage.
+IMPORTANT DATA SAFETY:
+- Do NOT clear browser/app storage or uninstall the app before checking your videos.
+- Existing videos, folders, links and planner data remain in the browser's IndexedDB.
+- Uploaded video files are stored on this device only, not in GitHub/cloud. Keep original files as backups.
+- Video total duration becomes available after each video is played once. Completed time is estimated from the saved playback position; a lecture is marked complete when it reaches the end.
+- YouTube playback is subject to the video's embedding permissions.

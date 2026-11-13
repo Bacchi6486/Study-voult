@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#10152b"><meta name="description" content="Your personal study library and planner.">
-<title>StudyVault</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css">
+<title>StudyVault</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="topbar"><div class="brand"><div class="brand-mark">S</div><div><strong>StudyVault</strong><small>Your personal study space</small></div></div><button id="settingsBtn" class="icon-btn">⚙</button></header>
+<header class="topbar"><div class="brand"><div class="brand-mark"><img src="icon-192.png" alt="StudyVault icon"></div><div><strong>StudyVault</strong><small>Your personal study space</small></div></div><button id="settingsBtn" class="icon-btn">⚙</button></header>
 <main>
 <section class="hero"><p class="eyebrow" id="todayLabel">YOUR STUDY SPACE</p><h1>Make today<br><span>count.</span></h1><p class="muted">Your lectures, links, quizzes and timetable in one place.</p>
 <div class="stats"><div class="stat"><b id="doneCount">0</b><span>Tasks done</span></div><div class="stat"><b id="videoCount">0</b><span>Videos saved</span></div><div class="stat"><b id="hoursCount">0m</b><span>Planned today</span></div></div></section>
@@ -23,7 +23,7 @@
 <div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Video lectures</h2></div></div>
 <div class="folder-panel"><div class="folder-panel-head"><div><b>Subject folders</b><small>Each subject includes its own Links folder</small></div><span>📁</span></div><div id="folderChips" class="folder-chips"></div>
 <div class="folder-tools"><select id="folderFilter"><option value="all">All folders</option></select><select id="uploadFolder"><option value="">Unsorted</option></select></div>
-<div class="folder-create"><input id="newFolderName" maxlength="40" placeholder="New folder name"><input id="newFolderColor" type="color" value="#9a8cff"><button id="addFolderBtn" class="small-btn">＋ Add</button></div>
+<div class="folder-create"><input id="newFolderName" maxlength="40" placeholder="New folder name"><input id="newFolderColor" type="color" value="#9a8cff"><button id="addFolderBtn" class="small-btn">＋ Add</button><select id="newFolderParent" class="folder-parent"><option value="">Create in Home (top level)</option></select></div>
 <div class="folder-manage"><select id="manageFolder"><option value="">Choose a folder to customise</option></select><input id="editFolderName" maxlength="40" placeholder="Rename selected folder"><input id="editFolderColor" type="color" value="#9a8cff"><button id="saveFolderBtn" class="small-btn">Save changes</button><button id="deleteFolderBtn" class="small-btn danger-outline">Delete folder</button></div>
 <p class="folder-help">Deleting a folder moves its videos and links to Unsorted. Videos are not deleted.</p></div>
 <label class="upload-card" for="videoInput"><span class="upload-icon">＋</span><span><b>Add a lecture video</b><small>Choose a video stored on this phone</small></span><span class="upload-arrow">↗</span></label><input id="videoInput" type="file" accept="video/*" multiple hidden>
@@ -48,7 +48,7 @@
 <button id="startQuizBtn" class="primary full">Create my quiz</button></div><div id="quizArea"></div></section>
 </main>
 
-<dialog id="playerDialog" class="player-dialog"><div class="dialog-head"><div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div><button id="closePlayer" class="icon-btn">✕</button></div><video id="videoPlayer" controls playsinline></video><p class="note">Playback position is remembered on this device.</p><button id="deleteVideoBtn" class="danger full">Delete saved video</button></dialog>
+<dialog id="playerDialog" class="player-dialog"><div class="dialog-head"><div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div><button id="closePlayer" class="icon-btn">✕</button></div><video id="videoPlayer" controls playsinline></video><p class="note">Video title can be edited from the lecture list using “Edit title”.</p><p class="note">Playback position is remembered on this device.</p><button id="deleteVideoBtn" class="danger full">Delete saved video</button></dialog>
 <dialog id="youtubeDialog" class="player-dialog"><div class="dialog-head"><div><b id="youtubePlayerTitle">YouTube video</b><small>Playing inside StudyVault</small></div><button id="closeYoutube" class="icon-btn">✕</button></div><div class="youtube-frame"><iframe id="youtubeFrame" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div><p class="note">Some videos do not allow embedding. If blocked by the owner, that video cannot play inside the app.</p></dialog>
 <dialog id="settingsDialog"><div class="dialog-head"><b>StudyVault settings</b><button class="icon-btn" id="closeSettings">✕</button></div><p class="muted small">Your library is stored in this browser on this device. Do not clear browser data unless you have backed up your content.</p><button id="exportSettingsBtn" class="secondary full">Export planner backup</button></dialog>
 <div id="toast" role="status" class="toast"></div><script src="app.js"></script>
