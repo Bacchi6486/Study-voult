@@ -10,6 +10,7 @@ import {
   browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
+// Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBUpfwh6IR0GXerdR5bbbHV6AD7ESO80MY",
   authDomain: "studyvoult-ccafb.firebaseapp.com",
@@ -20,8 +21,10 @@ const firebaseConfig = {
   measurementId: "G-R2B3CKENDT"
 };
 
-const OWNER_EMAIL = "bachhi6486@gmail.com";
+// Owner Gmail
+const OWNER_EMAIL = "bacchi6486@gmail.com";
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
@@ -30,48 +33,78 @@ provider.setCustomParameters({
   prompt: "select_account"
 });
 
+// Account elements
 const status = document.getElementById("accountStatus");
 const action = document.getElementById("accountAction");
 const note = document.getElementById("accountNote");
 
-function showError(error) {
-  console.error(error);
-  if (status) status.textContent = "Login failed";
-  if (note) note.textContent = error.message;
+function showMessage(message) {
+  if (status) status.textContent = message;
 }
 
-action.onclick = async () => {
-  try {
-    if (auth.currentUser) {
-      await signOut(auth);
-    } else {
-      await signInWithPopup(auth, provider);
-    }
-  } catch (error) {
-    showError(error);
+function showError(error) {
+  console.error("StudyVault Authentication Error:", error);
+
+  showMessage("Login failed");
+
+  if (note) {
+    note.textContent = error.message || "Please try again.";
   }
-};
+}
 
-setPersistence(auth, browserLocalPersistence).catch(showError);
+// Login / Logout
+if (action) {
+  action.addEventListener("click", async () => {
+    action.disabled = true;
 
-onAuthStateChanged(auth, user => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+
+      if (auth.currentUser) {
+        await signOut(auth);
+      } else {
+        await signInWithPopup(auth, provider);
+      }
+    } catch (error) {
+      showError(error);
+    } finally {
+      action.disabled = false;
+    }
+  });
+}
+
+// Check login status
+onAuthStateChanged(auth, (user) => {
   if (!user) {
-    status.textContent = "Not signed in";
-    action.textContent = "Sign in with Google";
-    note.textContent = "Sign in with owner Gmail.";
+    showMessage("Not signed in");
+
+    if (action) action.textContent = "Sign in with Google";
+
+    if (note) {
+      note.textContent = "Sign in with your owner Gmail.";
+    }
+
     return;
   }
 
-  const isOwner =
-    user.email?.toLowerCase() === OWNER_EMAIL;
+  const email = (user.email || "").toLowerCase();
+  const isOwner = email === OWNER_EMAIL.toLowerCase();
 
-  status.textContent = isOwner
-    ? "Owner account connected"
-    : "Signed in as " + user.email;
+  if (isOwner) {
+    showMessage("Owner account connected");
 
-  action.textContent = "Sign out";
+    if (note) {
+      note.textContent = "Owner identity verified.";
+    }
+  } else {
+    showMessage("Signed in as " + (user.email || "Unknown"));
 
-  note.textContent = isOwner
-    ? "Owner identity verified."
-    : "This is not the configured owner account.";
+    if (note) {
+      note.textContent = "This is not the configured owner account.";
+    }
+  }
+
+  if (action) {
+    action.textContent = "Sign out";
+  }
 });
