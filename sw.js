@@ -1,4 +1,4 @@
-const CACHE = "studyvault-v6-google-auth";
+const CACHE = "studyvault-v7-google-popup";
 
 const ASSETS = [
   "./",
