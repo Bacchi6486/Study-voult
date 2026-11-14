@@ -364,6 +364,20 @@
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
+  <div id="youtubePlaylistPanel"
+     style="display:none;padding:12px;margin-top:12px;
+     border-radius:12px;background:var(--card,#202020);
+     color:var(--text,#fff);max-height:420px;overflow-y:auto;">
+
+  <h3 id="youtubePlaylistHeading">Playlist videos</h3>
+
+  <div id="youtubePlaylistStatus">
+    Loading playlist...
+  </div>
+
+  <div id="youtubePlaylistItems"></div>
+
+  </div>
   <p class="note">Some videos do not allow embedding. Private videos may require YouTube permissions or opening on YouTube.</p>
   <button id="openYoutubeBtn" class="secondary full">Open on YouTube</button>
 </dialog>
