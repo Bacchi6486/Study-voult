@@ -1247,71 +1247,92 @@ function youtubeCardHTML(link, folders) {
 
 /* RENDER YOUTUBE LINKS */
 
+
+
 async function renderLinks() {
-  if (!$("linksList")) return;
+  const linksList = $("linksList");
 
-  const links = (await all("links"))
-    .sort((a, b) => (b.added || 0) - (a.added || 0));
+  if (!linksList) return;
 
-  const folders = await all("folders");
+  try {
+    const links = (await all("links"))
+      .sort((a, b) => (b.added || 0) - (a.added || 0));
 
-  const visibleLinks = links.filter(link => {
-    if (!currentFolderId) return true;
+    const folders = await all("folders");
 
-    return (
-      link.parentFolderId === currentFolderId ||
-      link.folderId === currentFolderId
-    );
-  });
+    const visibleLinks = links.filter(link => {
+      if (!currentFolderId) return true;
 
-  $("linksList").innerHTML = visibleLinks.length
-    ? visibleLinks.map(link =>
-        youtubeCardHTML(link, folders)
-      ).join("")
-    : '<div class="empty">No YouTube links saved yet.</div>';
-
-  document.querySelectorAll("[data-yplay]").forEach(button => {
-    button.onclick = () => playYoutube(button.dataset.yplay);
-  });
-
-  document.querySelectorAll("[data-ydel]").forEach(button => {
-    button.onclick = async () => {
-      if (!confirm("Delete this YouTube link from StudyVault?")) {
-        return;
-      }
-
-      await del("links", button.dataset.ydel);
-
-      await renderLinks();
-      await renderHome();
-
-      toast("YouTube link deleted");
-    };
-  });
-
-  document.querySelectorAll("[data-yopen]").forEach(button => {
-    button.onclick = async () => {
-      const link = await reqP(
-        store("links").get(button.dataset.yopen)
+      return (
+        link.parentFolderId === currentFolderId ||
+        link.folderId === currentFolderId
       );
+    });
 
-      if (link?.url) {
-        window.open(link.url, "_blank", "noopener,noreferrer");
-      }
-    };
-  });
+    linksList.innerHTML = visibleLinks.length
+      ? visibleLinks.map(link =>
+          youtubeCardHTML(link, folders)
+        ).join("")
+      : '<div class="empty">No YouTube links saved yet.</div>';
 
-  document.querySelectorAll("[data-ybookmark]").forEach(button => {
-    button.onclick = async () => {
-      const link = await reqP(
-        store("links").get(button.dataset.ybookmark)
-      );
+    // PLAY YOUTUBE INSIDE STUDYVAULT
+    document.querySelectorAll("[data-yplay]").forEach(button => {
+      button.onclick = () => {
+        playYoutube(button.dataset.yplay);
+      };
+    });
 
-      if (link) {
-        await addBookmark("youtube", link.id, link.title, link.url);
-      }
-    };
-  });
+    // OPEN PLAYLIST INSIDE STUDYVAULT
+    document.querySelectorAll("[data-yopen]").forEach(button => {
+      button.onclick = () => {
+        playYoutube(button.dataset.yopen);
+      };
+    });
+
+    // DELETE YOUTUBE LINK
+    document.querySelectorAll("[data-ydel]").forEach(button => {
+      button.onclick = async () => {
+        if (!confirm("Delete this YouTube link from StudyVault?")) {
+          return;
+        }
+
+        await del("links", button.dataset.ydel);
+
+        await renderLinks();
+        await renderHome();
+
+        toast("YouTube link deleted");
+      };
+    });
+
+    // BOOKMARK YOUTUBE LINK
+    document.querySelectorAll("[data-ybookmark]").forEach(button => {
+      button.onclick = async () => {
+        try {
+          const link = await reqP(
+            store("links").get(button.dataset.ybookmark)
+          );
+
+          if (link) {
+            await addBookmark(
+              "youtube",
+              link.id,
+              link.title,
+              link.url
+            );
+          }
+        } catch (error) {
+          console.error("YouTube bookmark error:", error);
+          toast("Could not bookmark YouTube link");
+        }
+      };
+    });
+
+  } catch (error) {
+    console.error("Render YouTube links error:", error);
+    linksList.innerHTML =
+      '<div class="empty">Could not load YouTube links.</div>';
+  }
 }
 
 /* PLAY YOUTUBE INSIDE STUDYVAULT */
