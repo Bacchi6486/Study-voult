@@ -2645,46 +2645,55 @@ function makeQuestionsFromText(textContent, subject) {
 ========================================================= */
 
 async function prepareMockQuestions() {
-  const sourceElement = $("quizSource");
-  const subjectElement = $("quizSubject");
-  const pdfElement = $("quizPdf");
-  const difficultyElement = $("quizDifficulty");
-  const countElement = $("quizCount");
-
-  const source = sourceElement ? sourceElement.value : "mixed";
-  const subject = subjectElement ? subjectElement.value : "all";
-  const difficulty = difficultyElement ? difficultyElement.value : "all";
+  const source = $("quizSource")?.value || "mixed";
+  const subject = $("quizSubject")?.value || "mixed";
+  const difficulty = $("quizDifficulty")?.value || "all";
   const count = Math.max(
     1,
-    Math.min(100, Number(countElement ? countElement.value : 10) || 10)
+    Math.min(100, Number($("quizCount")?.value || 10))
   );
 
   let questions = [];
 
+  // General knowledge question bank
   if (source === "gk" || source === "mixed") {
     questions = questions.concat(studyVaultGK);
   }
 
+  // Saved notes and pasted notes
   if (source === "notes" || source === "mixed") {
     const notes = await xall("notes");
 
     for (const note of notes) {
-      const content = `${note.title || ""}. ${note.content || note.text || ""}`;
-      const generated = makeQuestionsFromText(content, note.subject);
-      questions = questions.concat(generated);
+      const content =
+        `${note.title || ""}. ${note.content || note.text || ""}`;
+
+      questions = questions.concat(
+        makeQuestionsFromText(content, note.subject)
+      );
+    }
+
+    const pastedNotes = $("quizNotes")?.value?.trim() || "";
+
+    if (pastedNotes) {
+      questions = questions.concat(
+        makeQuestionsFromText(pastedNotes, "Notes")
+      );
     }
   }
 
+  // Selected PDF
   if (source === "pdf") {
-    const pdfId = pdfElement ? pdfElement.value : "";
+    const pdfId = $("quizPdf")?.value || "";
 
     if (!pdfId) {
       throw new Error("Please select a saved PDF first.");
     }
 
     const pdfs = await xall("pdfs");
-    const selectedPdf = pdfs.find(pdf =>
-      String(pdf.id) === String(pdfId)
+
+    const selectedPdf = pdfs.find(
+      pdf => String(pdf.id) === String(pdfId)
     );
 
     if (!selectedPdf) {
@@ -2692,19 +2701,26 @@ async function prepareMockQuestions() {
     }
 
     const extractedText = await extractPdfText(selectedPdf);
+
     questions = makeQuestionsFromText(
       extractedText,
       selectedPdf.subject || "PDF"
     );
   }
 
-  if (subject && subject !== "all") {
+  // Subject filter: Mixed means all subjects
+  if (
+    subject &&
+    subject !== "all" &&
+    subject !== "mixed"
+  ) {
     questions = questions.filter(question =>
       String(question.subject || "").toLowerCase() ===
-      String(subject).toLowerCase()
+      subject.toLowerCase()
     );
   }
 
+  // Difficulty filter
   if (difficulty && difficulty !== "all") {
     questions = questions.filter(question =>
       question.difficulty === difficulty
@@ -2712,11 +2728,15 @@ async function prepareMockQuestions() {
   }
 
   if (!questions.length) {
-    throw new Error("No questions found for this selection.");
+    throw new Error(
+      "No questions found. Try Mixed subject or another question source."
+    );
   }
 
   return shuffle(questions).slice(0, count);
 }
+
+
 
 function getSelectedQuizAnswer() {
   const selected = document.querySelectorAll(
@@ -2877,50 +2897,7 @@ function finishMock() {
   toast("Mock completed");
 }
 
-async function startStudyMock() {
-  try {
-    quizQuestions = await prepareMockQuestions();
-    quizIndex = 0;
-    quizScore = 0;
-    quizCorrect = 0;
-    quizWrong = 0;
-    quizAnswered = false;
-    quizSeconds = 0;
 
-    const area = $("quizArea");
-    if (area) area.style.display = "block";
-
-    renderMockQuestion();
-
-    const timerElement = $("quizTimer");
-    const seconds = timerElement
-      ? Number(timerElement.value || 0)
-      : 0;
-
-    if (quizTimerInterval) clearInterval(quizTimerInterval);
-
-    if (seconds > 0) {
-      let remaining = seconds * 60;
-
-      quizTimerInterval = setInterval(() => {
-        remaining--;
-
-        const timerDisplay = $("quizTimerDisplay");
-        if (timerDisplay) {
-          timerDisplay.textContent =
-            `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-        }
-
-        if (remaining <= 0) finishMock();
-      }, 1000);
-    }
-
-    toast("Mock started");
-  } catch (error) {
-    console.error(error);
-    toast(error.message || "Could not start Mock");
-  }
-}
 
 
 /* =========================================================
@@ -2998,6 +2975,87 @@ async function renderSearchResults(query) {
       if (type === "folder") await openFolder(id);
     });
   });
+}
+
+async function startStudyMock() {
+  try {
+    quizQuestions = await prepareMockQuestions();
+
+    quizIndex = 0;
+    quizScore = 0;
+    quizCorrect = 0;
+    quizWrong = 0;
+    quizAnswered = false;
+    quizSeconds = 0;
+
+    const area = $("quizArea");
+
+    if (!area) {
+      throw new Error("Mock question area is missing.");
+    }
+
+    // Create question display elements
+    area.style.display = "block";
+
+    area.innerHTML = `
+      <div class="panel mock-question-panel">
+        <div id="quizTimerDisplay">Time: --:--</div>
+
+        <div id="quizScore"></div>
+
+        <h3 id="quizQuestion"></h3>
+
+        <div id="quizOptions"></div>
+
+        <div id="quizFeedback"></div>
+
+        <button id="nextQuestionBtn" class="primary full">
+          Submit Answer
+        </button>
+      </div>
+    `;
+
+    $("nextQuestionBtn").onclick = submitMockAnswer;
+
+    renderMockQuestion();
+
+    // Timer
+    const seconds = Number($("quizTimer")?.value || 0);
+
+    if (quizTimerInterval) {
+      clearInterval(quizTimerInterval);
+      quizTimerInterval = null;
+    }
+
+    if (seconds > 0) {
+      let remaining = seconds * 60;
+
+      const updateTimer = () => {
+        const display = $("quizTimerDisplay");
+
+        if (display) {
+          display.textContent =
+            `Time: ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+        }
+
+        if (remaining <= 0) {
+          finishMock();
+          return;
+        }
+
+        remaining--;
+      };
+
+      updateTimer();
+      quizTimerInterval = setInterval(updateTimer, 1000);
+    }
+
+    toast("Mock started");
+
+  } catch (error) {
+    console.error("Mock error:", error);
+    toast(error.message || "Could not start Mock");
+  }
 }
 
 
