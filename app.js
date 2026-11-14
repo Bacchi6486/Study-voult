@@ -993,47 +993,55 @@ if ($("videoPlayer")) {
 }
 /* PLAYER ORIENTATION CONTROLS */
 
-async function setStudyVaultPlayerMode(target, mode) {
+
+/* PLAYER ORIENTATION CONTROLS - FIX */
+
+document.addEventListener("click", async function(event) {
+  const button = event.target.closest("[data-player-orientation]");
+  if (!button) return;
+
+  event.preventDefault();
+
+  const [target, mode] =
+    button.dataset.playerOrientation.split(":");
+
   const element = target === "youtube"
     ? document.querySelector(".youtube-frame")
     : $("videoPlayer");
 
-  if (!element) return;
+  if (!element) {
+    toast("Player nahi mila");
+    return;
+  }
 
   try {
-    if (mode === "fullscreen") {
-      if (!document.fullscreenElement) {
-        await element.requestFullscreen();
-      }
-      return;
-    }
-
     if (!document.fullscreenElement) {
       await element.requestFullscreen();
     }
 
-    if (screen.orientation?.lock) {
-      await screen.orientation.lock(
-        mode === "landscape" ? "landscape" : "portrait"
-      );
-    } else {
-      toast("Phone ka Auto-rotate ON karein");
+    if (mode === "fullscreen") {
+      toast("Fullscreen mode");
+      return;
     }
+
+    if (screen.orientation &&
+        typeof screen.orientation.lock === "function") {
+
+      await screen.orientation.lock(mode);
+      toast(mode === "landscape"
+        ? "Landscape mode"
+        : "Portrait mode");
+
+    } else {
+      toast("Auto-rotate ON karke phone ghumaiye");
+    }
+
   } catch (error) {
-    console.warn(error);
-    toast("Auto-rotate ON karke phone ghumaiye");
+    console.log("Orientation error:", error);
+    toast("Rotation supported nahi hai. Auto-rotate ON karein.");
   }
-}
-
-document.querySelectorAll("[data-player-orientation]")
-.forEach(button => {
-  button.onclick = () => {
-    const [target, mode] =
-      button.dataset.playerOrientation.split(":");
-
-    setStudyVaultPlayerMode(target, mode);
-  };
 });
+
 /* CLOSE VIDEO PLAYER */
 
 if ($("closePlayer")) {
