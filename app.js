@@ -1338,6 +1338,205 @@ async function renderLinks() {
 /* PLAY YOUTUBE INSIDE STUDYVAULT */
 
 
+
+/* PLAY YOUTUBE INSIDE STUDYVAULT */
+
+function ensureYoutubePlaylistPanel() {
+  let panel = document.getElementById("youtubePlaylistPanel");
+
+  if (panel) return panel;
+
+  const frameBox = document.querySelector(".youtube-frame");
+
+  if (!frameBox) return null;
+
+  panel = document.createElement("div");
+  panel.id = "youtubePlaylistPanel";
+
+  panel.innerHTML = `
+    <div style="padding:12px 0">
+      <h3 id="youtubePlaylistHeading"
+          style="margin:0 0 8px">Playlist videos</h3>
+      <div id="youtubePlaylistStatus"
+           style="font-size:13px;opacity:.75;margin-bottom:10px">
+        Loading playlist...
+      </div>
+      <div id="youtubePlaylistItems"></div>
+    </div>
+  `;
+
+  panel.style.cssText = `
+    padding:12px;
+    margin-top:12px;
+    border-radius:12px;
+    background:var(--card, #202020);
+    color:var(--text, #fff);
+    max-height:420px;
+    overflow-y:auto;
+  `;
+
+  frameBox.insertAdjacentElement("afterend", panel);
+
+  return panel;
+}
+
+function formatYoutubeDuration(seconds) {
+  seconds = Number(seconds) || 0;
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
+async function loadYoutubePlaylist(playlistId) {
+  const panel = ensureYoutubePlaylistPanel();
+
+  if (!panel) return;
+
+  const status = document.getElementById("youtubePlaylistStatus");
+  const itemsBox = document.getElementById("youtubePlaylistItems");
+  const heading = document.getElementById("youtubePlaylistHeading");
+
+  status.textContent = "Loading latest playlist videos...";
+  itemsBox.innerHTML = "";
+
+  try {
+    const apiUrl =
+      "https://inv.nadeko.net/api/v1/playlists/" +
+      encodeURIComponent(playlistId);
+
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error("Playlist server error: " + response.status);
+    }
+
+    const data = await response.json();
+
+    const videos = Array.isArray(data.videos)
+      ? data.videos
+      : [];
+
+    heading.textContent = data.title || "Playlist videos";
+
+    if (!videos.length) {
+      status.textContent = "No videos found in this playlist.";
+      return;
+    }
+
+    status.textContent =
+      videos.length + " videos available";
+
+    videos.forEach((video, index) => {
+      const videoId = video.videoId;
+
+      if (!videoId) return;
+
+      const title = video.title || "Untitled video";
+
+      const thumbnail =
+        "https://i.ytimg.com/vi/" +
+        encodeURIComponent(videoId) +
+        "/mqdefault.jpg";
+
+      const duration = formatYoutubeDuration(
+        video.lengthSeconds
+      );
+
+      const item = document.createElement("button");
+
+      item.type = "button";
+
+      item.style.cssText = `
+        display:flex;
+        align-items:center;
+        gap:10px;
+        width:100%;
+        padding:9px;
+        margin-bottom:8px;
+        border:0;
+        border-radius:10px;
+        background:rgba(128,128,128,.12);
+        color:inherit;
+        text-align:left;
+        cursor:pointer;
+      `;
+
+      const img = document.createElement("img");
+      img.src = thumbnail;
+      img.alt = "";
+      img.loading = "lazy";
+      img.style.cssText = `
+        width:112px;
+        height:63px;
+        object-fit:cover;
+        border-radius:7px;
+        flex-shrink:0;
+      `;
+
+      const details = document.createElement("div");
+      details.style.cssText = "min-width:0;flex:1";
+
+      const name = document.createElement("div");
+      name.textContent = (index + 1) + ". " + title;
+      name.style.cssText = `
+        font-size:13px;
+        font-weight:600;
+        line-height:1.4;
+      `;
+
+      const time = document.createElement("div");
+      time.textContent = duration;
+      time.style.cssText = `
+        font-size:12px;
+        opacity:.7;
+        margin-top:5px;
+      `;
+
+      details.append(name, time);
+      item.append(img, details);
+
+      item.onclick = () => {
+        const frame = document.getElementById("youtubeFrame");
+
+        if (!frame) return;
+
+        frame.src =
+          "https://www.youtube-nocookie.com/embed/" +
+          encodeURIComponent(videoId) +
+          "?playsinline=1&rel=0&autoplay=1";
+
+        const playerTitle =
+          document.getElementById("youtubePlayerTitle");
+
+        if (playerTitle) {
+          playerTitle.textContent = title;
+        }
+
+        document.querySelector(".youtube-frame")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+
+      itemsBox.appendChild(item);
+    });
+
+  } catch (error) {
+    console.error("Playlist loading error:", error);
+
+    status.textContent =
+      "Playlist list load nahi hui. Server unavailable ho sakta hai. Thodi der baad dobara kholiye.";
+  }
+}
+
 async function playYoutube(id) {
   try {
     const link = await reqP(store("links").get(id));
@@ -1383,21 +1582,38 @@ async function playYoutube(id) {
     link.lastWatched = Date.now();
     await put("links", link);
 
-    const dialog = $("youtubeDialog");
-    const frame = $("youtubeFrame");
+    const dialog = document.getElementById("youtubeDialog");
+    const frame = document.getElementById("youtubeFrame");
 
     if (!dialog || !frame) {
       toast("YouTube player dialog is missing");
       return;
     }
 
-    $("youtubePlayerTitle").textContent =
-      link.title || "YouTube Playlist";
+    const playerTitle =
+      document.getElementById("youtubePlayerTitle");
+
+    if (playerTitle) {
+      playerTitle.textContent =
+        link.title || "YouTube Playlist";
+    }
 
     frame.src = embedUrl;
 
+    const panel = document.getElementById("youtubePlaylistPanel");
+
+    if (panel) {
+      panel.style.display = playlistId ? "block" : "none";
+    }
+
     if (!dialog.open) {
       dialog.showModal();
+    }
+
+    if (playlistId) {
+      await loadYoutubePlaylist(playlistId);
+    } else if (panel) {
+      panel.style.display = "none";
     }
 
     await saveHistory("youtube", link.id, link.title);
@@ -1409,6 +1625,7 @@ async function playYoutube(id) {
     toast("Could not open YouTube player");
   }
 }
+
 
 
 
