@@ -1,4 +1,5 @@
-const CACHE = "studyvault-v8-google-popup";
+
+const CACHE_NAME = "studyvault-v9-master-update";
 
 const ASSETS = [
   "./",
@@ -13,8 +14,13 @@ const ASSETS = [
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(ASSETS).catch(error => {
+        console.warn("Cache setup warning:", error);
+      })
+    )
   );
+
   self.skipWaiting();
 });
 
@@ -22,19 +28,44 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
-        keys.filter(key => key !== CACHE).map(key => caches.delete(key))
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
       )
     )
   );
+
   self.clients.claim();
 });
 
 self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
+  const request = event.request;
+  const url = new URL(request.url);
+
+  if (
+    request.method !== "GET" ||
+    url.origin !== self.location.origin
+  ) {
+    return;
+  }
 
   event.respondWith(
-    caches.match(event.request).then(response =>
-      response || fetch(event.request).catch(() => caches.match("./index.html"))
-    )
+    fetch(request)
+      .then(response => {
+        if (response && response.ok) {
+          const copy = response.clone();
+
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(request, copy);
+          });
+        }
+
+        return response;
+      })
+      .catch(() =>
+        caches.match(request).then(cached => {
+          return cached || caches.match("./");
+        })
+      )
   );
 });
