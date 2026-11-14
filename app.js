@@ -1,199 +1,328 @@
+/* =========================================================
+   STUDYVAULT - COMPLETE APP UPDATE
+   PART 1 OF 3
+   Existing IndexedDB data is preserved.
+========================================================= */
 
-/* STUDYVAULT MASTER UPDATE
-   Existing video/task/folder database is preserved.
-   Extra features use a separate database.
-*/
+"use strict";
 
 const DB_NAME = "studyvault-db";
 const DB_VERSION = 4;
 const EXTRA_DB = "studyvault-extras";
 
 const DEFAULT_FOLDERS = [
-  ["polity","Polity","#9a8cff"],
-  ["economics","Economics","#6de0c2"],
-  ["geography","Geography","#f4b86a"],
-  ["history","History","#ef8fa8"],
-  ["physics","Physics","#79b8ff"],
-  ["chemistry","Chemistry","#b6df75"],
-  ["biology","Biology","#61d6a7"]
+  ["polity", "Polity", "#9a8cff"],
+  ["economics", "Economics", "#6de0c2"],
+  ["geography", "Geography", "#f4b86a"],
+  ["history", "History", "#ef8fa8"],
+  ["physics", "Physics", "#79b8ff"],
+  ["chemistry", "Chemistry", "#b6df75"],
+  ["biology", "Biology", "#61d6a7"]
 ];
 
 const $ = id => document.getElementById(id);
-let db, extraDB;
-let currentVideoId = null, currentObjectUrl = null;
-let currentPdfUrl = null, toastTimer;
-let quizQuestions = [], quizIndex = 0, quizScore = 0;
-let quizAnswered = false, quizTimerInterval = null;
-let quizSeconds = 0, quizCorrect = 0, quizWrong = 0;
+
+let db = null;
+let extraDB = null;
+
+let currentVideoId = null;
+let currentObjectUrl = null;
+let currentPdfUrl = null;
+let currentFolderId = null;
+
+let toastTimer = null;
+let quizQuestions = [];
+let quizIndex = 0;
+let quizScore = 0;
+let quizCorrect = 0;
+let quizWrong = 0;
+let quizAnswered = false;
+let quizTimerInterval = null;
+let quizSeconds = 0;
+
 let activeLibraryType = "videos";
 
-const uid = () => crypto.randomUUID
-  ? crypto.randomUUID()
-  : String(Date.now()) + Math.random();
+const uid = () => {
+  if (window.crypto && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return "sv-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+};
 
 const todayKey = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0")
+  ].join("-");
 };
-
-function toast(message) {
-  const t = $("toast");
-  if (!t) return;
-  t.textContent = message;
-  t.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
-}
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
-  }[c]));
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[c]);
 }
 
-function fmtMin(n) {
-  n = Math.max(0, Math.round(Number(n) || 0));
-  return n >= 60
-    ? `${Math.floor(n/60)}h ${n%60 ? n%60+"m" : ""}`
-    : `${n}m`;
+function toast(message) {
+  const t = $("toast");
+  if (!t) {
+    console.log(message);
+    return;
+  }
+
+  t.textContent = message;
+  t.classList.add("show");
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.classList.remove("show");
+  }, 2800);
 }
 
-function shuffle(arr) {
-  return arr.map(x => [Math.random(),x])
-    .sort((a,b) => a[0]-b[0]).map(x => x[1]);
+function fmtMin(value) {
+  const n = Math.max(0, Math.round(Number(value) || 0));
+
+  if (n >= 60) {
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    return `${h}h ${m ? m + "m" : ""}`;
+  }
+
+  return `${n}m`;
 }
+
+function bytes(value) {
+  const n = Number(value) || 0;
+
+  if (n < 1048576) {
+    return (n / 1024).toFixed(0) + " KB";
+  }
+
+  return (n / 1048576).toFixed(1) + " MB";
+}
+
+function shuffle(array) {
+  return array
+    .map(item => [Math.random(), item])
+    .sort((a, b) => a[0] - b[0])
+    .map(item => item[1]);
+}
+
+/* =========================================================
+   DATABASE
+========================================================= */
 
 function openDB() {
-  return new Promise((resolve,reject) => {
-    const r = indexedDB.open(DB_NAME,DB_VERSION);
-    r.onupgradeneeded = () => {
-      const d = r.result;
-      for (const n of ["videos","tasks","settings","folders","links"]) {
-        if (!d.objectStoreNames.contains(n)) {
-          d.createObjectStore(n,{keyPath:n==="settings"?"key":"id"});
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+
+      const stores = [
+        "videos",
+        "tasks",
+        "settings",
+        "folders",
+        "links"
+      ];
+
+      for (const name of stores) {
+        if (!database.objectStoreNames.contains(name)) {
+          database.createObjectStore(name, {
+            keyPath: name === "settings" ? "key" : "id"
+          });
         }
       }
     };
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
+
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+
+    request.onerror = () => reject(request.error);
   });
 }
 
 function openExtraDB() {
-  return new Promise((resolve,reject) => {
-    const r = indexedDB.open(EXTRA_DB,1);
-    r.onupgradeneeded = () => {
-      const d = r.result;
-      for (const n of ["pdfs","notes","bookmarks","history","settings"]) {
-        if (!d.objectStoreNames.contains(n)) {
-          d.createObjectStore(n,{keyPath:"id"});
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(EXTRA_DB, 1);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+
+      const stores = [
+        "pdfs",
+        "notes",
+        "bookmarks",
+        "history",
+        "settings"
+      ];
+
+      for (const name of stores) {
+        if (!database.objectStoreNames.contains(name)) {
+          database.createObjectStore(name, {
+            keyPath: "id"
+          });
         }
       }
     };
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
+
+    request.onsuccess = () => {
+      extraDB = request.result;
+      resolve(extraDB);
+    };
+
+    request.onerror = () => reject(request.error);
   });
 }
 
-function store(n,mode="readonly") {
-  return db.transaction(n,mode).objectStore(n);
+function store(name, mode = "readonly") {
+  return db.transaction(name, mode).objectStore(name);
 }
 
-function extraStore(n,mode="readonly") {
-  return extraDB.transaction(n,mode).objectStore(n);
+function extraStore(name, mode = "readonly") {
+  return extraDB.transaction(name, mode).objectStore(name);
 }
 
-const reqP = r => new Promise((resolve,reject) => {
-  r.onsuccess = () => resolve(r.result);
-  r.onerror = () => reject(r.error);
-});
+function reqP(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
 
-const all = n => reqP(store(n).getAll());
-const put = (n,v) => reqP(store(n,"readwrite").put(v));
-const del = (n,id) => reqP(store(n,"readwrite").delete(id));
-const xall = n => reqP(extraStore(n).getAll());
-const xput = (n,v) => reqP(extraStore(n,"readwrite").put(v));
-const xdel = (n,id) => reqP(extraStore(n,"readwrite").delete(id));
+const all = name => reqP(store(name).getAll());
+const put = (name, value) =>
+  reqP(store(name, "readwrite").put(value));
+const del = (name, id) =>
+  reqP(store(name, "readwrite").delete(id));
 
-/* NAVIGATION */
+const xall = name => reqP(extraStore(name).getAll());
+const xput = (name, value) =>
+  reqP(extraStore(name, "readwrite").put(value));
+const xdel = (name, id) =>
+  reqP(extraStore(name, "readwrite").delete(id));
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
 
 function switchTab(name) {
-  document.querySelectorAll(".tab").forEach(b =>
-    b.classList.toggle("active",b.dataset.tab===name)
-  );
-  document.querySelectorAll(".page").forEach(p =>
-    p.classList.toggle("active",p.id===name)
-  );
+  document.querySelectorAll(".tab").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.tab === name
+    );
+  });
 
-  window.scrollTo({top:0,behavior:"smooth"});
+  document.querySelectorAll(".page").forEach(page => {
+    page.classList.toggle("active", page.id === name);
+  });
 
-  if (name==="videos") {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+
+  if (name === "home") {
+    currentFolderId = null;
+    renderHome();
+  }
+
+  if (name === "videos") {
     renderFolderControls();
     renderVideos();
     renderLinks();
   }
-  if (name==="pdfs") renderPdfs();
-  if (name==="notes") renderNotes();
-  if (name==="planner") renderTasks();
-  if (name==="progress") renderProgress();
-  if (name==="home") renderHome();
+
+  if (name === "pdfs") renderPdfs();
+  if (name === "notes") renderNotes();
+  if (name === "planner") renderTasks();
+  if (name === "progress") renderProgress();
 }
 
-document.querySelectorAll(".tab").forEach(b =>
-  b.onclick = () => switchTab(b.dataset.tab)
-);
+document.querySelectorAll(".tab").forEach(button => {
+  button.onclick = () => switchTab(button.dataset.tab);
+});
 
-document.querySelectorAll("[data-go]").forEach(b =>
-  b.onclick = () => switchTab(b.dataset.go)
-);
+document.querySelectorAll("[data-go]").forEach(button => {
+  button.onclick = () => switchTab(button.dataset.go);
+});
 
 if ($("todayLabel")) {
   $("todayLabel").textContent =
-    new Intl.DateTimeFormat(undefined,{
-      weekday:"long",day:"numeric",month:"long"
+    new Intl.DateTimeFormat(undefined, {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
     }).format(new Date()).toUpperCase();
 }
 
-/* FOLDERS */
+/* =========================================================
+   FOLDERS
+========================================================= */
 
 async function ensureSubjectLinks(folder) {
-  const fs = await all("folders");
-  let child = fs.find(x => x.parentId===folder.id && x.isLinks);
+  const folders = await all("folders");
+
+  let child = folders.find(item =>
+    item.parentId === folder.id && item.isLinks
+  );
 
   if (!child) {
     child = {
-      id:"links-"+folder.id,
-      parentId:folder.id,
-      name:"Links",
-      color:folder.color,
-      isLinks:true,
-      isDefault:true
+      id: "links-" + folder.id,
+      parentId: folder.id,
+      name: "Links",
+      color: folder.color,
+      isLinks: true,
+      isDefault: true
     };
-    await put("folders",child);
+
+    await put("folders", child);
   }
+
   return child;
 }
 
 async function seedFolders() {
-  let fs = await all("folders");
+  let folders = await all("folders");
 
-  for (const [id,name,color] of DEFAULT_FOLDERS) {
-    if (!fs.some(f=>f.id===id)) {
-      await put("folders",{id,name,color,isDefault:true});
+  for (const [id, name, color] of DEFAULT_FOLDERS) {
+    if (!folders.some(folder => folder.id === id)) {
+      await put("folders", {
+        id,
+        name,
+        color,
+        isDefault: true
+      });
     }
   }
 
-  fs = await all("folders");
-  const roots = fs.filter(x=>!x.parentId && !x.isLinks);
+  folders = await all("folders");
 
-  for (const f of roots) {
-    const child = await ensureSubjectLinks(f);
+  const roots = folders.filter(folder =>
+    !folder.parentId && !folder.isLinks
+  );
+
+  for (const folder of roots) {
+    const child = await ensureSubjectLinks(folder);
 
     for (const link of await all("links")) {
-      if (link.folderId===f.id && !link.parentFolderId) {
-        link.parentFolderId = f.id;
+      if (
+        link.folderId === folder.id &&
+        !link.parentFolderId
+      ) {
+        link.parentFolderId = folder.id;
         link.folderId = child.id;
-        await put("links",link);
+        await put("links", link);
       }
     }
   }
@@ -201,229 +330,352 @@ async function seedFolders() {
 
 async function folderName(id) {
   if (!id) return "Unsorted";
-  const f = (await all("folders")).find(x=>x.id===id);
-  return f ? f.name : "Unsorted";
+
+  const folders = await all("folders");
+  const folder = folders.find(item => item.id === id);
+
+  return folder ? folder.name : "Unsorted";
 }
 
-function folderPath(id,folders) {
-  let f = folders.find(x=>x.id===id);
-  if (!f) return "Unsorted";
-  const names = [f.name];
+function folderPath(id, folders) {
+  let folder = folders.find(item => item.id === id);
 
-  while (f.parentId) {
-    f = folders.find(x=>x.id===f.parentId);
-    if (!f) break;
-    names.unshift(f.name);
+  if (!folder) return "Unsorted";
+
+  const names = [folder.name];
+
+  while (folder.parentId) {
+    folder = folders.find(item => item.id === folder.parentId);
+
+    if (!folder) break;
+
+    names.unshift(folder.name);
   }
+
   return names.join(" / ");
 }
 
 async function renderFolderControls() {
   const folders = await all("folders");
-  const fs = folders.filter(f=>!f.isLinks)
-    .sort((a,b)=>a.name.localeCompare(b.name));
+
+  const visibleFolders = folders
+    .filter(folder => !folder.isLinks)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const filter = $("folderFilter");
   const upload = $("uploadFolder");
   const manage = $("manageFolder");
 
-  if (!filter || !upload || !manage) return;
+  const options = visibleFolders.map(folder => {
+    return `<option value="${esc(folder.id)}">
+      ${esc(folderPath(folder.id, folders))}
+    </option>`;
+  }).join("");
 
-  const old = filter.value;
-  const oldU = upload.value;
-  const oldM = manage.value;
+  if (filter) {
+    const old = filter.value;
 
-  const options = fs.map(f =>
-    `<option value="${esc(f.id)}">${esc(folderPath(f.id,folders))}</option>`
-  ).join("");
+    filter.innerHTML =
+      '<option value="all">All folders</option>' +
+      '<option value="">Unsorted</option>' +
+      options;
 
-  filter.innerHTML =
-    '<option value="all">All folders</option><option value="">Unsorted</option>'+options;
+    if ([...filter.options].some(option => option.value === old)) {
+      filter.value = old;
+    }
+  }
 
-  upload.innerHTML =
-    '<option value="">Unsorted</option>'+options;
+  if (upload) {
+    const old = upload.value;
 
-  manage.innerHTML =
-    '<option value="">Choose a folder to customise</option>'+options;
+    upload.innerHTML =
+      '<option value="">Unsorted</option>' + options;
 
-  if ([...filter.options].some(x=>x.value===old)) filter.value=old;
-  if ([...upload.options].some(x=>x.value===oldU)) upload.value=oldU;
-  if ([...manage.options].some(x=>x.value===oldM)) manage.value=oldM;
+    if ([...upload.options].some(option => option.value === old)) {
+      upload.value = old;
+    }
+  }
+
+  if (manage) {
+    const old = manage.value;
+
+    manage.innerHTML =
+      '<option value="">Choose a folder to customise</option>' +
+      options;
+
+    if ([...manage.options].some(option => option.value === old)) {
+      manage.value = old;
+    }
+  }
 
   if ($("newFolderParent")) {
     $("newFolderParent").innerHTML =
-      '<option value="">Create in Home (top level)</option>'+options;
+      '<option value="">Create in Home (top level)</option>' +
+      options;
   }
 
   if ($("linkSubject")) {
-    const roots = fs.filter(f=>!f.parentId);
-    $("linkSubject").innerHTML = roots.map(f => {
-      const child = folders.find(x=>x.parentId===f.id&&x.isLinks);
+    const roots = visibleFolders.filter(folder => !folder.parentId);
+
+    $("linkSubject").innerHTML = roots.map(folder => {
+      const child = folders.find(item =>
+        item.parentId === folder.id && item.isLinks
+      );
+
       return child
-        ? `<option value="${esc(child.id)}">${esc(f.name)} / Links</option>`
+        ? `<option value="${esc(child.id)}">
+             ${esc(folder.name)} / Links
+           </option>`
         : "";
     }).join("");
   }
 
   if ($("pdfFolder")) {
-    const oldPdf = $("pdfFolder").value;
+    const old = $("pdfFolder").value;
+
     $("pdfFolder").innerHTML =
-      '<option value="">Unsorted</option>'+options;
-    if ([...$("pdfFolder").options].some(x=>x.value===oldPdf)) {
-      $("pdfFolder").value=oldPdf;
+      '<option value="">Unsorted</option>' + options;
+
+    if ([...$("pdfFolder").options].some(option => option.value === old)) {
+      $("pdfFolder").value = old;
     }
   }
 
   if ($("noteFolder")) {
-    const oldNote = $("noteFolder").value;
+    const old = $("noteFolder").value;
+
     $("noteFolder").innerHTML =
-      '<option value="">Unsorted</option>'+options;
-    if ([...$("noteFolder").options].some(x=>x.value===oldNote)) {
-      $("noteFolder").value=oldNote;
+      '<option value="">Unsorted</option>' + options;
+
+    if ([...$("noteFolder").options].some(option => option.value === old)) {
+      $("noteFolder").value = old;
     }
   }
 
-  $("folderChips").innerHTML =
-    '<button class="folder-chip active" data-folder-chip="all">All</button>'+
-    '<button class="folder-chip" data-folder-chip="">Unsorted</button>'+
-    fs.map(f =>
-      `<button class="folder-chip" data-folder-chip="${esc(f.id)}" style="--folder-color:${esc(f.color)}"><i></i>${esc(folderPath(f.id,folders))}</button>`
-    ).join("");
+  const chips = $("folderChips");
 
-  document.querySelectorAll("[data-folder-chip]").forEach(b => {
-    b.onclick = () => {
-      filter.value=b.dataset.folderChip;
-      document.querySelectorAll("[data-folder-chip]").forEach(x =>
-        x.classList.toggle("active",x===b)
-      );
-      renderVideos();
-    };
-  });
+  if (chips) {
+    chips.innerHTML =
+      '<button class="folder-chip active" data-folder-chip="all">All</button>' +
+      '<button class="folder-chip" data-folder-chip="">Unsorted</button>' +
+      visibleFolders.map(folder => `
+        <button
+          class="folder-chip"
+          data-folder-chip="${esc(folder.id)}"
+          style="--folder-color:${esc(folder.color)}"
+        >
+          <i></i>${esc(folderPath(folder.id, folders))}
+        </button>
+      `).join("");
+
+    chips.querySelectorAll("[data-folder-chip]").forEach(button => {
+      button.onclick = () => {
+        if (filter) filter.value = button.dataset.folderChip;
+
+        chips.querySelectorAll("[data-folder-chip]").forEach(item => {
+          item.classList.toggle("active", item === button);
+        });
+
+        renderVideos();
+      };
+    });
+  }
 }
 
 if ($("folderFilter")) {
   $("folderFilter").onchange = () => {
-    document.querySelectorAll("[data-folder-chip]").forEach(b =>
-      b.classList.toggle("active",b.dataset.folderChip===$("folderFilter").value)
-    );
+    document.querySelectorAll("[data-folder-chip]").forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.folderChip === $("folderFilter").value
+      );
+    });
+
     renderVideos();
   };
 }
 
+/* CREATE FOLDER */
+
 if ($("addFolderBtn")) {
   $("addFolderBtn").onclick = async () => {
-    const name=$("newFolderName").value.trim();
-    if (!name) return toast("Enter a folder name");
+    const name = $("newFolderName")?.value.trim();
 
-    const parentId=$("newFolderParent").value||null;
-    const fs=await all("folders");
-
-    if (fs.some(f=>f.parentId===parentId &&
-      f.name.toLowerCase()===name.toLowerCase() && !f.isLinks)) {
-      return toast("Folder already exists here");
+    if (!name) {
+      toast("Enter a folder name");
+      return;
     }
 
-    const f={
-      id:uid(),name,parentId,
-      color:$("newFolderColor").value,
-      isDefault:false
+    const parentId = $("newFolderParent")?.value || null;
+    const folders = await all("folders");
+
+    const exists = folders.some(folder =>
+      folder.parentId === parentId &&
+      folder.name.toLowerCase() === name.toLowerCase() &&
+      !folder.isLinks
+    );
+
+    if (exists) {
+      toast("Folder already exists here");
+      return;
+    }
+
+    const folder = {
+      id: uid(),
+      name,
+      parentId,
+      color: $("newFolderColor")?.value || "#9a8cff",
+      isDefault: false
     };
 
-    await put("folders",f);
-    if (!parentId) await ensureSubjectLinks(f);
+    await put("folders", folder);
 
-    $("newFolderName").value="";
+    if (!parentId) {
+      await ensureSubjectLinks(folder);
+    }
+
+    if ($("newFolderName")) {
+      $("newFolderName").value = "";
+    }
+
     await renderFolderControls();
     await renderHome();
+
     toast("Folder created");
   };
 }
 
+/* EDIT FOLDER */
+
 if ($("manageFolder")) {
   $("manageFolder").onchange = async () => {
-    const f=(await all("folders")).find(x=>x.id===$("manageFolder").value);
-    $("editFolderName").value=f?.name||"";
-    $("editFolderColor").value=f?.color||"#9a8cff";
+    const id = $("manageFolder").value;
+    const folders = await all("folders");
+    const folder = folders.find(item => item.id === id);
+
+    if ($("editFolderName")) {
+      $("editFolderName").value = folder?.name || "";
+    }
+
+    if ($("editFolderColor")) {
+      $("editFolderColor").value = folder?.color || "#9a8cff";
+    }
   };
 }
 
 if ($("saveFolderBtn")) {
   $("saveFolderBtn").onclick = async () => {
-    const id=$("manageFolder").value;
-    const f=(await all("folders")).find(x=>x.id===id);
-    const name=$("editFolderName").value.trim();
+    const id = $("manageFolder")?.value;
+    const folders = await all("folders");
+    const folder = folders.find(item => item.id === id);
+    const name = $("editFolderName")?.value.trim();
 
-    if (!f||!name) return toast("Choose a folder and enter its name");
-
-    const fs=await all("folders");
-    if (fs.some(x=>x.id!==id && x.parentId===f.parentId &&
-      x.name.toLowerCase()===name.toLowerCase())) {
-      return toast("That folder name is already used here");
+    if (!folder || !name) {
+      toast("Choose a folder and enter its name");
+      return;
     }
 
-    f.name=name;
-    f.color=$("editFolderColor").value;
-    await put("folders",f);
+    const duplicate = folders.some(item =>
+      item.id !== id &&
+      item.parentId === folder.parentId &&
+      item.name.toLowerCase() === name.toLowerCase()
+    );
 
+    if (duplicate) {
+      toast("That folder name is already used here");
+      return;
+    }
+
+    folder.name = name;
+
+    if ($("editFolderColor")) {
+      folder.color = $("editFolderColor").value;
+    }
+
+    await put("folders", folder);
     await renderFolderControls();
-    $("manageFolder").value=id;
     await renderHome();
+
+    if ($("manageFolder")) {
+      $("manageFolder").value = id;
+    }
+
     toast("Folder updated");
   };
 }
 
+/* DELETE FOLDER */
+
 if ($("deleteFolderBtn")) {
   $("deleteFolderBtn").onclick = async () => {
-    const id=$("manageFolder").value;
-    const f=(await all("folders")).find(x=>x.id===id);
+    const id = $("manageFolder")?.value;
+    const folders = await all("folders");
+    const folder = folders.find(item => item.id === id);
 
-    if (!f) return toast("Choose a folder first");
-    if (!confirm(`Delete "${f.name}"? Its content will move to Unsorted.`)) return;
+    if (!folder) {
+      toast("Choose a folder first");
+      return;
+    }
 
-    const fs=await all("folders");
-    const ids=[id];
-    let changed=true;
+    if (!confirm(
+      `Delete "${folder.name}"? Its content will move to Unsorted.`
+    )) return;
 
-    while(changed) {
-      changed=false;
-      for(const x of fs) {
-        if(x.parentId&&ids.includes(x.parentId)&&!ids.includes(x.id)) {
-          ids.push(x.id);
-          changed=true;
+    const ids = [id];
+    let changed = true;
+
+    while (changed) {
+      changed = false;
+
+      for (const item of folders) {
+        if (
+          item.parentId &&
+          ids.includes(item.parentId) &&
+          !ids.includes(item.id)
+        ) {
+          ids.push(item.id);
+          changed = true;
         }
       }
     }
 
-    for(const v of await all("videos")) {
-      if(ids.includes(v.folderId)) {
-        v.folderId=null;
-        await put("videos",v);
+    for (const video of await all("videos")) {
+      if (ids.includes(video.folderId)) {
+        video.folderId = null;
+        await put("videos", video);
       }
     }
 
-    for(const l of await all("links")) {
-      if(ids.includes(l.folderId)||ids.includes(l.parentFolderId)) {
-        l.folderId=null;
-        l.parentFolderId=null;
-        await put("links",l);
+    for (const link of await all("links")) {
+      if (
+        ids.includes(link.folderId) ||
+        ids.includes(link.parentFolderId)
+      ) {
+        link.folderId = null;
+        link.parentFolderId = null;
+        await put("links", link);
       }
     }
 
-    for(const p of await xall("pdfs")) {
-      if(ids.includes(p.folderId)) {
-        p.folderId=null;
-        await xput("pdfs",p);
+    for (const pdf of await xall("pdfs")) {
+      if (ids.includes(pdf.folderId)) {
+        pdf.folderId = null;
+        await xput("pdfs", pdf);
       }
     }
 
-    for(const n of await xall("notes")) {
-      if(ids.includes(n.folderId)) {
-        n.folderId=null;
-        await xput("notes",n);
+    for (const note of await xall("notes")) {
+      if (ids.includes(note.folderId)) {
+        note.folderId = null;
+        await xput("notes", note);
       }
     }
 
-    for(const x of ids.reverse()) await del("folders",x);
+    for (const folderId of ids.reverse()) {
+      await del("folders", folderId);
+    }
+
+    currentFolderId = null;
 
     await renderFolderControls();
     await renderVideos();
@@ -431,1423 +683,2471 @@ if ($("deleteFolderBtn")) {
     await renderPdfs();
     await renderNotes();
     await renderHome();
+
     toast("Folder deleted. Content kept.");
   };
 }
 
-/* LOCAL VIDEO LIBRARY */
+/* =========================================================
+   LOCAL VIDEO LIBRARY
+========================================================= */
 
-function bytes(n) {
-  return n<1048576
-    ? (n/1024).toFixed(0)+" KB"
-    : (n/1048576).toFixed(1)+" MB";
-}
+function videoHTML(video, move = false, folders = []) {
+  const label = folderPath(video.folderId, folders);
 
-function videoHTML(v,move=false,fs=[]) {
-  const label=folderPath(v.folderId,fs);
-  const opts=move
-    ? `<select class="move-select" data-move="${esc(v.id)}"><option value="">Unsorted</option>${fs.filter(x=>!x.isLinks).map(x=>`<option value="${esc(x.id)}" ${x.id===v.folderId?"selected":""}>${esc(folderPath(x.id,fs))}</option>`).join("")}</select>`
+  const options = move
+    ? `<select class="move-select" data-move="${esc(video.id)}">
+         <option value="">Unsorted</option>
+         ${folders.filter(item => !item.isLinks).map(item => `
+           <option
+             value="${esc(item.id)}"
+             ${item.id === video.folderId ? "selected" : ""}
+           >
+             ${esc(folderPath(item.id, folders))}
+           </option>
+         `).join("")}
+       </select>`
     : "";
 
-  return `<div class="video-item">
-    <div class="video-thumb">▶</div>
-    <div class="video-meta">
-      <b>${esc(v.name)}</b>
-      <small><span class="folder-tag">${esc(label)}</span> · ${bytes(v.size||0)}${v.position?" · Resume available":""}</small>
-      ${opts}
+  return `
+    <div class="video-item">
+      <div class="video-thumb">▶</div>
+
+      <div class="video-meta">
+        <b>${esc(video.name)}</b>
+        <small>
+          <span class="folder-tag">${esc(label)}</span>
+          · ${bytes(video.size || 0)}
+          ${video.position ? " · Resume available" : ""}
+        </small>
+        ${options}
+      </div>
+
+      <div class="video-actions">
+        <button class="small-btn"
+          data-edit-video="${esc(video.id)}">
+          Edit title
+        </button>
+
+        <button class="small-btn"
+          data-play="${esc(video.id)}">
+          Play
+        </button>
+
+        <button class="small-btn"
+          data-video-bookmark="${esc(video.id)}">
+          ☆
+        </button>
+      </div>
     </div>
-    <div class="video-actions">
-      <button class="small-btn" data-edit-video="${esc(v.id)}">Edit title</button>
-      <button class="small-btn" data-play="${esc(v.id)}">Play</button>
-    </div>
-  </div>`;
+  `;
 }
 
 async function bindVideoButtons() {
-  document.querySelectorAll("[data-edit-video]").forEach(b => {
-    b.onclick=async()=>{
-      const v=await reqP(store("videos").get(b.dataset.editVideo));
-      if(!v)return;
-      const name=prompt("Edit video title",v.name);
-      if(name&&name.trim()) {
-        v.name=name.trim();
-        await put("videos",v);
+  document.querySelectorAll("[data-edit-video]").forEach(button => {
+    button.onclick = async () => {
+      const video = await reqP(
+        store("videos").get(button.dataset.editVideo)
+      );
+
+      if (!video) return;
+
+      const name = prompt("Edit video title", video.name);
+
+      if (name && name.trim()) {
+        video.name = name.trim();
+
+        await put("videos", video);
         await renderVideos();
         await renderHome();
+
         toast("Video title updated");
       }
     };
   });
 
-  document.querySelectorAll("[data-play]").forEach(b =>
-    b.onclick=()=>playVideo(b.dataset.play)
-  );
+  document.querySelectorAll("[data-play]").forEach(button => {
+    button.onclick = () => playVideo(button.dataset.play);
+  });
 
-  document.querySelectorAll("[data-move]").forEach(s => {
-    s.onchange=async()=>{
-      const v=await reqP(store("videos").get(s.dataset.move));
-      if(v) {
-        v.folderId=s.value||null;
-        await put("videos",v);
-        await renderVideos();
-        await renderHome();
-        toast("Video moved");
+  document.querySelectorAll("[data-move]").forEach(select => {
+    select.onchange = async () => {
+      const video = await reqP(
+        store("videos").get(select.dataset.move)
+      );
+
+      if (!video) return;
+
+      video.folderId = select.value || null;
+
+      await put("videos", video);
+      await renderVideos();
+      await renderHome();
+
+      toast("Video moved");
+    };
+  });
+
+  document.querySelectorAll("[data-video-bookmark]").forEach(button => {
+    button.onclick = async () => {
+      const video = await reqP(
+        store("videos").get(button.dataset.videoBookmark)
+      );
+
+      if (video) {
+        await addBookmark("video", video.id, video.name);
       }
     };
   });
 }
 
 async function renderVideos() {
-  if(!$("allVideos"))return;
+  if (!$("allVideos")) return;
 
-  const list=await all("videos");
-  const fs=await all("folders");
-  const q=($("videoSearch")?.value||"").toLowerCase();
-  const filter=$("folderFilter")?.value||"all";
+  const videos = await all("videos");
+  const folders = await all("folders");
 
-  const arr=list.filter(v =>
-    (v.name+" "+(v.subject||"")).toLowerCase().includes(q) &&
-    (filter==="all"||(filter===""?!v.folderId:v.folderId===filter))
-  ).sort((a,b)=>(b.added||0)-(a.added||0));
+  const query = ($("videoSearch")?.value || "").toLowerCase();
 
-  $("allVideos").innerHTML=arr.length
-    ? arr.map(v=>videoHTML(v,true,fs)).join("")
+  const filter = $("folderFilter")
+    ? $("folderFilter").value
+    : "all";
+
+  const filtered = videos.filter(video => {
+    const matchesSearch =
+      (video.name + " " + (video.subject || ""))
+        .toLowerCase()
+        .includes(query);
+
+    const matchesFolder =
+      filter === "all" ||
+      (filter === "" ? !video.folderId : video.folderId === filter);
+
+    const matchesCurrentFolder =
+      !currentFolderId || video.folderId === currentFolderId;
+
+    return matchesSearch && matchesFolder && matchesCurrentFolder;
+  }).sort((a, b) => {
+    return (b.added || 0) - (a.added || 0);
+  });
+
+  $("allVideos").innerHTML = filtered.length
+    ? filtered.map(video => videoHTML(video, true, folders)).join("")
     : '<div class="empty">No videos in this view.</div>';
 
   await bindVideoButtons();
 }
 
-if ($("videoSearch")) $("videoSearch").oninput=renderVideos;
+if ($("videoSearch")) {
+  $("videoSearch").oninput = renderVideos;
+}
+
+/* UPLOAD LOCAL VIDEOS */
 
 if ($("videoInput")) {
-  $("videoInput").onchange=async e=>{
-    const files=[...e.target.files];
-    const folderId=$("uploadFolder").value||null;
+  $("videoInput").onchange = async event => {
+    const files = [...event.target.files];
+    const folderId = $("uploadFolder")?.value || null;
 
-    for(const file of files) {
-      if(!file.type.startsWith("video/"))continue;
+    const folders = await all("folders");
+    const selectedFolder = folders.find(item => item.id === folderId);
+
+    for (const file of files) {
+      if (!file.type.startsWith("video/")) continue;
 
       try {
-        await put("videos",{
-          id:uid(),name:file.name,subject:"Unsorted",
-          folderId,size:file.size,type:file.type,
-          blob:file,added:Date.now(),position:0,lastWatched:0
+        await put("videos", {
+          id: uid(),
+          name: file.name,
+          subject: selectedFolder?.name || "Unsorted",
+          folderId,
+          size: file.size,
+          type: file.type,
+          blob: file,
+          added: Date.now(),
+          position: 0,
+          lastWatched: 0,
+          completed: false
         });
-      } catch(err) {
+      } catch (error) {
+        console.error(error);
         toast("Storage may be full. Could not save video.");
         break;
       }
     }
 
-    e.target.value="";
+    event.target.value = "";
+
     await renderVideos();
     await renderHome();
+
     toast("Video saved on this device");
   };
 }
 
+/* PLAY LOCAL VIDEO */
+
 async function playVideo(id) {
-  const v=await reqP(store("videos").get(id));
-  if(!v)return;
+  const video = await reqP(store("videos").get(id));
 
-  v.lastWatched=Date.now();
-  await put("videos",v);
+  if (!video || !video.blob) {
+    toast("Video file not found");
+    return;
+  }
 
-  currentVideoId=id;
-  if(currentObjectUrl)URL.revokeObjectURL(currentObjectUrl);
-  currentObjectUrl=URL.createObjectURL(v.blob);
+  video.lastWatched = Date.now();
+  await put("videos", video);
 
-  if($("playerTitle"))$("playerTitle").textContent=v.name;
-  if($("playerSubject"))$("playerSubject").textContent=await folderName(v.folderId);
+  currentVideoId = id;
 
-  $("videoPlayer").src=currentObjectUrl;
-  $("playerDialog").showModal();
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl);
+  }
 
-  $("videoPlayer").onloadedmetadata=()=>{
-    if(v.position>0 && v.position<$("videoPlayer").duration-2) {
-      $("videoPlayer").currentTime=v.position;
-    }
-  };
+  currentObjectUrl = URL.createObjectURL(video.blob);
 
-  await saveHistory("video",v.id,v.name);
+  if ($("playerTitle")) {
+    $("playerTitle").textContent = video.name;
+  }
+
+  if ($("playerSubject")) {
+    $("playerSubject").textContent =
+      await folderName(video.folderId);
+  }
+
+  if ($("videoPlayer")) {
+    $("videoPlayer").src = currentObjectUrl;
+  }
+
+  if ($("playerDialog")) {
+    $("playerDialog").showModal();
+  }
+
+  if ($("videoPlayer")) {
+    $("videoPlayer").onloadedmetadata = () => {
+      const player = $("videoPlayer");
+
+      if (
+        video.position > 0 &&
+        video.position < player.duration - 2
+      ) {
+        player.currentTime = video.position;
+      }
+    };
+  }
+
+  await saveHistory("video", video.id, video.name);
   await renderHome();
 }
 
-if($("videoPlayer")) {
-  $("videoPlayer").ontimeupdate=async()=>{
-    if(!currentVideoId||$("videoPlayer").currentTime%5>1)return;
-    const v=await reqP(store("videos").get(currentVideoId));
-    if(v) {
-      v.position=$("videoPlayer").currentTime;
-      v.durationSeconds=$("videoPlayer").duration||v.durationSeconds||0;
-      v.completed=!!(v.durationSeconds&&v.position>=v.durationSeconds-10);
-      await put("videos",v);
-    }
+/* SAVE VIDEO WATCH POSITION */
+
+if ($("videoPlayer")) {
+  $("videoPlayer").ontimeupdate = async () => {
+    if (!currentVideoId) return;
+
+    const player = $("videoPlayer");
+
+    if (player.currentTime % 5 > 1) return;
+
+    const video = await reqP(
+      store("videos").get(currentVideoId)
+    );
+
+    if (!video) return;
+
+    video.position = player.currentTime;
+    video.durationSeconds =
+      player.duration || video.durationSeconds || 0;
+
+    video.completed = !!(
+      video.durationSeconds &&
+      video.position >= video.durationSeconds - 10
+    );
+
+    await put("videos", video);
   };
 
-  $("videoPlayer").onended=async()=>{
-    if(!currentVideoId)return;
-    const v=await reqP(store("videos").get(currentVideoId));
-    if(v) {
-      v.durationSeconds=$("videoPlayer").duration||v.durationSeconds||0;
-      v.position=v.durationSeconds;
-      v.completed=true;
-      await put("videos",v);
-      await renderHome();
-      await renderProgress();
+  $("videoPlayer").onended = async () => {
+    if (!currentVideoId) return;
+
+    const video = await reqP(
+      store("videos").get(currentVideoId)
+    );
+
+    if (!video) return;
+
+    video.durationSeconds =
+      $("videoPlayer").duration ||
+      video.durationSeconds ||
+      0;
+
+    video.position = video.durationSeconds;
+    video.completed = true;
+
+    await put("videos", video);
+
+    await renderHome();
+    await renderProgress();
+  };
+}
+
+/* CLOSE VIDEO PLAYER */
+
+if ($("closePlayer")) {
+  $("closePlayer").onclick = () => {
+    if ($("videoPlayer")) {
+      $("videoPlayer").pause();
+    }
+
+    if ($("playerDialog")) {
+      $("playerDialog").close();
     }
   };
 }
 
-if($("closePlayer")) {
-  $("closePlayer").onclick=()=>{
-    $("videoPlayer").pause();
-    $("playerDialog").close();
-  };
-}
+if ($("playerDialog")) {
+  $("playerDialog").onclose = () => {
+    if (currentObjectUrl) {
+      URL.revokeObjectURL(currentObjectUrl);
+    }
 
-if($("playerDialog")) {
-  $("playerDialog").onclose=()=>{
-    if(currentObjectUrl)URL.revokeObjectURL(currentObjectUrl);
-    currentObjectUrl=null;
-    $("videoPlayer").removeAttribute("src");
-    $("videoPlayer").load();
-    currentVideoId=null;
+    currentObjectUrl = null;
+
+    if ($("videoPlayer")) {
+      $("videoPlayer").removeAttribute("src");
+      $("videoPlayer").load();
+    }
+
+    currentVideoId = null;
     renderVideos();
   };
 }
 
-if($("deleteVideoBtn")) {
-  $("deleteVideoBtn").onclick=async()=>{
-    if(currentVideoId&&confirm("Delete saved copy from this device?")) {
-      await del("videos",currentVideoId);
-      $("playerDialog").close();
+/* DELETE LOCAL VIDEO */
+
+if ($("deleteVideoBtn")) {
+  $("deleteVideoBtn").onclick = async () => {
+    if (
+      currentVideoId &&
+      confirm("Delete saved copy from this device?")
+    ) {
+      await del("videos", currentVideoId);
+
+      if ($("playerDialog")) {
+        $("playerDialog").close();
+      }
+
       await renderVideos();
       await renderHome();
+
       toast("Saved copy deleted");
     }
   };
 }
 
-/* YOUTUBE LINKS */
+/* =========================================================
+   END OF PART 1
+   PART 2 CONTINUES WITH YOUTUBE, PDF, NOTES,
+   PLANNER AND HOME FOLDER CONTENTS.
+========================================================= *//* =========================================================
+   STUDYVAULT - COMPLETE APP UPDATE
+   PART 2 OF 3
+   YOUTUBE, PDF, NOTES, PLANNER AND HOME
+========================================================= */
+
+/* =========================================================
+   YOUTUBE LINKS
+   Unlisted videos, Shorts, Live and Premiere links
+========================================================= */
+
+function getYouTubeInfo(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+
+    if (
+      host !== "youtube.com" &&
+      host !== "m.youtube.com" &&
+      host !== "youtu.be" &&
+      host !== "youtube-nocookie.com"
+    ) {
+      return null;
+    }
+
+    let videoId = null;
+    let playlistId = parsed.searchParams.get("list") || null;
+
+    if (host === "youtu.be") {
+      videoId = parsed.pathname.split("/").filter(Boolean)[0] || null;
+    } else {
+      const parts = parsed.pathname.split("/").filter(Boolean);
+
+      if (parsed.pathname === "/watch") {
+        videoId = parsed.searchParams.get("v");
+      } else if (
+        ["embed", "shorts", "live", "v"].includes(parts[0])
+      ) {
+        videoId = parts[1] || null;
+      }
+    }
+
+    if (videoId && !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      videoId = null;
+    }
+
+    if (playlistId && !/^[a-zA-Z0-9_-]+$/.test(playlistId)) {
+      playlistId = null;
+    }
+
+    if (!videoId && !playlistId) return null;
+
+    return {
+      videoId,
+      playlistId,
+      type: playlistId && !videoId ? "playlist" : "video"
+    };
+  } catch (error) {
+    return null;
+  }
+}
 
 function youtubeId(url) {
-  try {
-    const u=new URL(url);
-    const h=u.hostname.replace(/^www\./,"");
-
-    if(h==="youtu.be")return u.pathname.slice(1).split("/")[0];
-
-    if(h.endsWith("youtube.com")) {
-      if(u.pathname==="/watch")return u.searchParams.get("v");
-      if(
-        u.pathname.startsWith("/embed/")||
-        u.pathname.startsWith("/shorts/")||
-        u.pathname.startsWith("/live/")
-      ) return u.pathname.split("/")[2];
-    }
-  } catch(e) {}
-  return null;
+  return getYouTubeInfo(url)?.videoId || null;
 }
 
 function youtubeThumb(id) {
   return `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
 }
 
-if($("saveLinkBtn")) {
-  $("saveLinkBtn").onclick=async()=>{
-    const url=$("youtubeUrl").value.trim();
-    const id=youtubeId(url);
-    const folderId=$("linkSubject").value;
-    const title=$("linkTitle").value.trim();
+function youtubeEmbedUrl(link) {
+  if (link.type === "playlist" && link.playlistId) {
+    return "https://www.youtube-nocookie.com/embed/videoseries?list=" +
+      encodeURIComponent(link.playlistId);
+  }
 
-    if(!id)return toast("Please enter a valid YouTube link");
+  if (link.youtubeId) {
+    const params = new URLSearchParams({
+      rel: "0",
+      playsinline: "1"
+    });
 
-    const child=(await all("folders")).find(f=>f.id===folderId&&f.isLinks);
+    if (link.playlistId) {
+      params.set("list", link.playlistId);
+    }
 
-    const link={
-      id:uid(),
-      youtubeId:id,
+    return "https://www.youtube-nocookie.com/embed/" +
+      encodeURIComponent(link.youtubeId) + "?" + params.toString();
+  }
+
+  return null;
+}
+
+/* SAVE YOUTUBE LINK */
+
+if ($("saveLinkBtn")) {
+  $("saveLinkBtn").onclick = async () => {
+    const url = $("youtubeUrl")?.value.trim() || "";
+    const title = $("linkTitle")?.value.trim() || "";
+    const folderId = $("linkSubject")?.value || "";
+
+    const info = getYouTubeInfo(url);
+
+    if (!info) {
+      toast("Valid YouTube video or playlist link paste karein");
+      return;
+    }
+
+    const folders = await all("folders");
+    const child = folders.find(folder =>
+      folder.id === folderId && folder.isLinks
+    );
+
+    const link = {
+      id: uid(),
+      youtubeId: info.videoId,
+      playlistId: info.playlistId,
+      type: info.type,
       url,
-      title:title||"YouTube lecture",
-      folderId:child?child.id:null,
-      parentFolderId:child?child.parentId:null,
-      added:Date.now(),
-      lastWatched:0
+      title: title || (
+        info.type === "playlist"
+          ? "YouTube Playlist"
+          : "YouTube Lecture"
+      ),
+      folderId: child ? child.id : null,
+      parentFolderId: child ? child.parentId : null,
+      added: Date.now(),
+      lastWatched: 0
     };
 
-    await put("links",link);
-    $("youtubeUrl").value="";
-    $("linkTitle").value="";
+    await put("links", link);
+
+    if ($("youtubeUrl")) $("youtubeUrl").value = "";
+    if ($("linkTitle")) $("linkTitle").value = "";
+
     await renderLinks();
     await renderHome();
+
     toast("YouTube link saved");
   };
 }
 
-async function renderLinks() {
-  if(!$("linksList"))return;
+/* YOUTUBE LINK CARD */
 
-  const links=(await all("links")).sort((a,b)=>(b.added||0)-(a.added||0));
-  const fs=await all("folders");
-
-  $("linksList").innerHTML=links.length
-    ? links.map(l=>{
-      const child=fs.find(x=>x.id===l.folderId&&x.isLinks);
-      const parent=fs.find(x=>x.id===(l.parentFolderId||child?.parentId||l.folderId));
-      return `<div class="video-item">
-        <img class="video-thumb youtube-thumb" src="${youtubeThumb(l.youtubeId)}"
-          alt="YouTube thumbnail" onerror="this.style.display='none'">
-        <div class="video-meta">
-          <b>${esc(l.title)}</b>
-          <small><span class="folder-tag">${esc(parent?.name||"Unsorted")} / Links</span></small>
-        </div>
-        <div class="video-actions">
-          <button class="small-btn" data-yplay="${esc(l.id)}">Play</button>
-          <button class="small-btn danger-outline" data-ydel="${esc(l.id)}">×</button>
-        </div>
-      </div>`;
-    }).join("")
-    : '<div class="empty">No YouTube links saved yet.</div>';
-
-  document.querySelectorAll("[data-yplay]").forEach(b =>
-    b.onclick=()=>playYoutube(b.dataset.yplay)
+function youtubeCardHTML(link, folders) {
+  const child = folders.find(folder =>
+    folder.id === link.folderId && folder.isLinks
   );
 
-  document.querySelectorAll("[data-ydel]").forEach(b => {
-    b.onclick=async()=>{
-      if(confirm("Remove this saved link?")) {
-        await del("links",b.dataset.ydel);
-        await renderLinks();
-        await renderHome();
+  const parent = folders.find(folder =>
+    folder.id === (link.parentFolderId || child?.parentId)
+  );
+
+  const isPlaylist = link.type === "playlist" && !link.youtubeId;
+
+  const thumbnail = link.youtubeId
+    ? `<img
+         class="video-thumb youtube-thumb"
+         src="${youtubeThumb(link.youtubeId)}"
+         alt="YouTube thumbnail"
+         loading="lazy"
+         onerror="this.style.display='none'"
+       >`
+    : `<div class="video-thumb">▶</div>`;
+
+  return `
+    <div class="video-item">
+      ${thumbnail}
+
+      <div class="video-meta">
+        <b>${esc(link.title)}</b>
+
+        <small>
+          <span class="folder-tag">
+            ${esc(parent?.name || "Unsorted")} / Links
+          </span>
+          · ${isPlaylist ? "Playlist" : "YouTube"}
+        </small>
+      </div>
+
+      <div class="video-actions">
+        <button
+          class="small-btn"
+          data-yplay="${esc(link.id)}"
+        >
+          Play
+        </button>
+
+        <button
+          class="small-btn"
+          data-ybookmark="${esc(link.id)}"
+        >
+          ☆
+        </button>
+
+        <button
+          class="small-btn"
+          data-yopen="${esc(link.id)}"
+        >
+          YouTube
+        </button>
+
+        <button
+          class="small-btn danger-outline"
+          data-ydel="${esc(link.id)}"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* RENDER YOUTUBE LINKS */
+
+async function renderLinks() {
+  if (!$("linksList")) return;
+
+  const links = (await all("links"))
+    .sort((a, b) => (b.added || 0) - (a.added || 0));
+
+  const folders = await all("folders");
+
+  const visibleLinks = links.filter(link => {
+    if (!currentFolderId) return true;
+
+    return (
+      link.parentFolderId === currentFolderId ||
+      link.folderId === currentFolderId
+    );
+  });
+
+  $("linksList").innerHTML = visibleLinks.length
+    ? visibleLinks.map(link =>
+        youtubeCardHTML(link, folders)
+      ).join("")
+    : '<div class="empty">No YouTube links saved yet.</div>';
+
+  document.querySelectorAll("[data-yplay]").forEach(button => {
+    button.onclick = () => playYoutube(button.dataset.yplay);
+  });
+
+  document.querySelectorAll("[data-ydel]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("Delete this YouTube link from StudyVault?")) {
+        return;
+      }
+
+      await del("links", button.dataset.ydel);
+
+      await renderLinks();
+      await renderHome();
+
+      toast("YouTube link deleted");
+    };
+  });
+
+  document.querySelectorAll("[data-yopen]").forEach(button => {
+    button.onclick = async () => {
+      const link = await reqP(
+        store("links").get(button.dataset.yopen)
+      );
+
+      if (link?.url) {
+        window.open(link.url, "_blank", "noopener,noreferrer");
+      }
+    };
+  });
+
+  document.querySelectorAll("[data-ybookmark]").forEach(button => {
+    button.onclick = async () => {
+      const link = await reqP(
+        store("links").get(button.dataset.ybookmark)
+      );
+
+      if (link) {
+        await addBookmark("youtube", link.id, link.title, link.url);
       }
     };
   });
 }
 
+/* PLAY YOUTUBE INSIDE STUDYVAULT */
+
 async function playYoutube(id) {
-  const l=await reqP(store("links").get(id));
-  if(!l)return;
+  const link = await reqP(store("links").get(id));
 
-  l.lastWatched=Date.now();
-  await put("links",l);
+  if (!link) {
+    toast("YouTube link not found");
+    return;
+  }
 
-  $("youtubePlayerTitle").textContent=l.title;
-  $("youtubeThumbnailBox").innerHTML=
-    `<img src="${youtubeThumb(l.youtubeId)}" alt="YouTube thumbnail">`;
+  const embedUrl = youtubeEmbedUrl(link);
 
-  $("youtubeFrame").src=
-    `https://www.youtube-nocookie.com/embed/${encodeURIComponent(l.youtubeId)}?autoplay=1&rel=0`;
+  if (!embedUrl) {
+    toast("This YouTube link cannot be played here");
+    return;
+  }
 
-  $("youtubeDialog").showModal();
-  await saveHistory("youtube",l.id,l.title);
+  link.lastWatched = Date.now();
+  await put("links", link);
+
+  const dialog = $("youtubeDialog");
+  const frame = $("youtubeFrame");
+
+  if (dialog && frame) {
+    if ($("youtubePlayerTitle")) {
+      $("youtubePlayerTitle").textContent = link.title;
+    }
+
+    frame.src = embedUrl;
+
+    if (!dialog.open) {
+      dialog.showModal();
+    }
+  } else {
+    window.open(link.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  await saveHistory("youtube", link.id, link.title);
   await renderHome();
 }
 
-function closeYoutube() {
-  if($("youtubeFrame"))$("youtubeFrame").src="";
-  if($("youtubeDialog"))$("youtubeDialog").close();
-}
+/* CLOSE YOUTUBE PLAYER */
 
-if($("closeYoutube"))$("closeYoutube").onclick=closeYoutube;
-if($("youtubeDialog"))$("youtubeDialog").onclose=()=>{
-  $("youtubeFrame").src="";
-};
-
-if($("openYoutubeBtn")) {
-  $("openYoutubeBtn").onclick=async()=>{
-    const id=youtubeId($("youtubeFrame").src);
-    if(id)window.open(`https://www.youtube.com/watch?v=${id}`,"_blank");
-  };
-}
-
-/* LIBRARY TYPE FILTER */
-
-document.querySelectorAll("[data-library-type]").forEach(b=>{
-  b.onclick=()=>{
-    activeLibraryType=b.dataset.libraryType;
-    document.querySelectorAll("[data-library-type]").forEach(x=>
-      x.classList.toggle("active",x===b)
-    );
-
-    if(activeLibraryType==="videos") {
-      if($("allVideos"))$("allVideos").style.display="";
-      if($("linksList"))$("linksList").style.display="none";
-      renderVideos();
-    } else if(activeLibraryType==="links") {
-      if($("allVideos"))$("allVideos").style.display="none";
-      if($("linksList"))$("linksList").style.display="";
-      renderLinks();
-    } else {
-      switchTab("pdfs");
+if ($("closeYoutube")) {
+  $("closeYoutube").onclick = () => {
+    if ($("youtubeDialog")) {
+      $("youtubeDialog").close();
     }
   };
-});
+}
 
-/* PDF LIBRARY */
+if ($("youtubeDialog")) {
+  $("youtubeDialog").onclose = () => {
+    if ($("youtubeFrame")) {
+      $("youtubeFrame").src = "";
+    }
+  };
+}
 
-if($("pdfInput")) {
-  $("pdfInput").onchange=async e=>{
-    const files=[...e.target.files];
-    const folderId=$("pdfFolder").value||null;
+/* =========================================================
+   PDF LIBRARY
+========================================================= */
 
-    for(const file of files) {
-      if(file.type!=="application/pdf"&&!file.name.toLowerCase().endsWith(".pdf"))continue;
+/* UPLOAD PDF */
+
+if ($("pdfInput")) {
+  $("pdfInput").onchange = async event => {
+    const files = [...event.target.files];
+    const folderId = $("pdfFolder")?.value || null;
+
+    for (const file of files) {
+      if (
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ) {
+        continue;
+      }
 
       try {
-        await xput("pdfs",{
-          id:uid(),
-          name:file.name,
-          size:file.size,
+        await xput("pdfs", {
+          id: uid(),
+          name: file.name,
           folderId,
-          blob:file,
-          added:Date.now()
+          size: file.size,
+          blob: file,
+          added: Date.now(),
+          lastOpened: 0
         });
-      } catch(err) {
-        toast("PDF storage is full or unavailable");
+      } catch (error) {
+        console.error(error);
+        toast("Storage full. PDF could not be saved.");
         break;
       }
     }
 
-    e.target.value="";
+    event.target.value = "";
+
     await renderPdfs();
     await renderHome();
+
     toast("PDF saved on this device");
   };
 }
 
+/* PDF CARD */
+
+function pdfCardHTML(pdf, folders) {
+  return `
+    <div class="video-item">
+      <div class="video-thumb">PDF</div>
+
+      <div class="video-meta">
+        <b>${esc(pdf.name)}</b>
+
+        <small>
+          <span class="folder-tag">
+            ${esc(folderPath(pdf.folderId, folders))}
+          </span>
+          · ${bytes(pdf.size || 0)}
+        </small>
+      </div>
+
+      <div class="video-actions">
+        <button
+          class="small-btn"
+          data-pdf-open="${esc(pdf.id)}"
+        >
+          Open
+        </button>
+
+        <button
+          class="small-btn"
+          data-pdf-bookmark="${esc(pdf.id)}"
+        >
+          ☆
+        </button>
+
+        <button
+          class="small-btn danger-outline"
+          data-pdf-delete="${esc(pdf.id)}"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* RENDER PDFS */
+
 async function renderPdfs() {
-  if(!$("pdfList"))return;
+  if (!$("pdfList")) return;
 
-  const files=await xall("pdfs");
-  const folders=await all("folders");
-  const q=($("pdfSearch")?.value||"").toLowerCase();
+  const pdfs = (await xall("pdfs"))
+    .sort((a, b) => (b.added || 0) - (a.added || 0));
 
-  const list=files.filter(p=>p.name.toLowerCase().includes(q))
-    .sort((a,b)=>(b.added||0)-(a.added||0));
+  const folders = await all("folders");
 
-  $("pdfList").innerHTML=list.length
-    ? list.map(p=>`
-      <div class="video-item">
-        <div class="video-thumb">PDF</div>
-        <div class="video-meta">
-          <b>${esc(p.name)}</b>
-          <small>${esc(folderPath(p.folderId,folders))} · ${bytes(p.size||0)}</small>
-        </div>
-        <div class="video-actions">
-          <button class="small-btn" data-pdf-open="${esc(p.id)}">Open</button>
-          <button class="small-btn danger-outline" data-pdf-delete="${esc(p.id)}">×</button>
-        </div>
-      </div>`).join("")
-    : '<div class="empty">No PDF files added yet.</div>';
+  const visible = pdfs.filter(pdf => {
+    return !currentFolderId || pdf.folderId === currentFolderId;
+  });
 
-  document.querySelectorAll("[data-pdf-open]").forEach(b=>
-    b.onclick=()=>openPdf(b.dataset.pdfOpen)
-  );
+  $("pdfList").innerHTML = visible.length
+    ? visible.map(pdf => pdfCardHTML(pdf, folders)).join("")
+    : '<div class="empty">No PDFs in this folder.</div>';
 
-  document.querySelectorAll("[data-pdf-delete]").forEach(b=>{
-    b.onclick=async()=>{
-      if(confirm("Delete this PDF from StudyVault?")) {
-        await xdel("pdfs",b.dataset.pdfDelete);
-        await renderPdfs();
-        await renderHome();
-        toast("PDF deleted");
+  document.querySelectorAll("[data-pdf-open]").forEach(button => {
+    button.onclick = () => openPdf(button.dataset.pdfOpen);
+  });
+
+  document.querySelectorAll("[data-pdf-delete]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("Delete this PDF from StudyVault?")) return;
+
+      await xdel("pdfs", button.dataset.pdfDelete);
+
+      await renderPdfs();
+      await renderHome();
+
+      toast("PDF deleted");
+    };
+  });
+
+  document.querySelectorAll("[data-pdf-bookmark]").forEach(button => {
+    button.onclick = async () => {
+      const pdf = await reqP(
+        extraStore("pdfs").get(button.dataset.pdfBookmark)
+      );
+
+      if (pdf) {
+        await addBookmark("pdf", pdf.id, pdf.name);
       }
     };
   });
 }
 
-if($("pdfSearch"))$("pdfSearch").oninput=renderPdfs;
+/* OPEN PDF */
 
 async function openPdf(id) {
-  const p=await reqP(extraStore("pdfs").get(id));
-  if(!p)return;
+  const pdf = await reqP(extraStore("pdfs").get(id));
 
-  if(currentPdfUrl)URL.revokeObjectURL(currentPdfUrl);
-  currentPdfUrl=URL.createObjectURL(p.blob);
+  if (!pdf || !pdf.blob) {
+    toast("PDF file not found");
+    return;
+  }
 
-  $("pdfViewerTitle").textContent=p.name;
-  $("pdfViewer").src=currentPdfUrl;
-  $("pdfDialog").showModal();
+  pdf.lastOpened = Date.now();
+  await xput("pdfs", pdf);
 
-  await saveHistory("pdf",p.id,p.name);
+  if (currentPdfUrl) {
+    URL.revokeObjectURL(currentPdfUrl);
+  }
+
+  currentPdfUrl = URL.createObjectURL(pdf.blob);
+
+  if ($("pdfTitle")) {
+    $("pdfTitle").textContent = pdf.name;
+  }
+
+  if ($("pdfFrame")) {
+    $("pdfFrame").src = currentPdfUrl;
+  }
+
+  if ($("pdfDialog")) {
+    $("pdfDialog").showModal();
+  } else {
+    window.open(currentPdfUrl, "_blank");
+  }
+
+  await saveHistory("pdf", pdf.id, pdf.name);
 }
 
-if($("closePdf"))$("closePdf").onclick=()=>$("pdfDialog").close();
-
-if($("pdfDialog")) {
-  $("pdfDialog").onclose=()=>{
-    if(currentPdfUrl)URL.revokeObjectURL(currentPdfUrl);
-    currentPdfUrl=null;
-    $("pdfViewer").removeAttribute("src");
+if ($("closePdf")) {
+  $("closePdf").onclick = () => {
+    if ($("pdfDialog")) {
+      $("pdfDialog").close();
+    }
   };
 }
 
-/* NOTES */
+if ($("pdfDialog")) {
+  $("pdfDialog").onclose = () => {
+    if ($("pdfFrame")) {
+      $("pdfFrame").src = "";
+    }
 
-if($("saveNoteBtn")) {
-  $("saveNoteBtn").onclick=async()=>{
-    const title=$("noteTitle").value.trim();
-    const body=$("noteBody").value.trim();
+    if (currentPdfUrl) {
+      URL.revokeObjectURL(currentPdfUrl);
+    }
 
-    if(!title||!body)return toast("Enter note title and content");
+    currentPdfUrl = null;
+  };
+}
 
-    await xput("notes",{
-      id:uid(),
+/* =========================================================
+   NOTES
+========================================================= */
+
+/* SAVE NOTE */
+
+if ($("saveNoteBtn")) {
+  $("saveNoteBtn").onclick = async () => {
+    const title = $("noteTitle")?.value.trim() || "";
+    const content = $("noteContent")?.value.trim() || "";
+    const folderId = $("noteFolder")?.value || null;
+
+    if (!title || !content) {
+      toast("Enter note title and content");
+      return;
+    }
+
+    await xput("notes", {
+      id: uid(),
       title,
-      body,
-      folderId:$("noteFolder").value||null,
-      updated:Date.now()
+      content,
+      folderId,
+      created: Date.now(),
+      updated: Date.now()
     });
 
-    $("noteTitle").value="";
-    $("noteBody").value="";
+    $("noteTitle").value = "";
+    $("noteContent").value = "";
+
     await renderNotes();
+    await renderHome();
+
     toast("Note saved");
   };
 }
 
+/* RENDER NOTES */
+
 async function renderNotes() {
-  if(!$("notesList"))return;
+  if (!$("notesList")) return;
 
-  const notes=(await xall("notes")).sort((a,b)=>b.updated-a.updated);
-  const folders=await all("folders");
+  const notes = (await xall("notes"))
+    .sort((a, b) => (b.updated || b.created || 0) -
+                    (a.updated || a.created || 0));
 
-  $("notesList").innerHTML=notes.length
-    ? notes.map(n=>`
-      <div class="video-item note-item">
+  const folders = await all("folders");
+
+  const visible = notes.filter(note => {
+    return !currentFolderId || note.folderId === currentFolderId;
+  });
+
+  $("notesList").innerHTML = visible.length
+    ? visible.map(note => `
+      <div class="video-item">
+        <div class="video-thumb">N</div>
+
         <div class="video-meta">
-          <b>${esc(n.title)}</b>
-          <small>${esc(folderPath(n.folderId,folders))}</small>
-          <p>${esc(n.body.slice(0,180))}${n.body.length>180?"…":""}</p>
-        </div>
-        <div class="video-actions">
-          <button class="small-btn" data-note-edit="${esc(n.id)}">Edit</button>
-          <button class="small-btn danger-outline" data-note-delete="${esc(n.id)}">×</button>
-        </div>
-      </div>`).join("")
-    : '<div class="empty">Your notes will appear here.</div>';
+          <b>${esc(note.title)}</b>
 
-  document.querySelectorAll("[data-note-edit]").forEach(b=>{
-    b.onclick=async()=>{
-      const n=await reqP(extraStore("notes").get(b.dataset.noteEdit));
-      if(!n)return;
-      $("noteTitle").value=n.title;
-      $("noteBody").value=n.body;
-      $("noteFolder").value=n.folderId||"";
-      await xdel("notes",n.id);
-      window.scrollTo({top:0,behavior:"smooth"});
-      toast("Note loaded for editing. Save it after changes.");
+          <small>
+            ${esc(folderPath(note.folderId, folders))}
+          </small>
+
+          <p>${esc((note.content || "").slice(0, 130))}</p>
+        </div>
+
+        <div class="video-actions">
+          <button
+            class="small-btn"
+            data-note-edit="${esc(note.id)}"
+          >
+            Edit
+          </button>
+
+          <button
+            class="small-btn"
+            data-note-bookmark="${esc(note.id)}"
+          >
+            ☆
+          </button>
+
+          <button
+            class="small-btn danger-outline"
+            data-note-delete="${esc(note.id)}"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    `).join("")
+    : '<div class="empty">No notes in this folder.</div>';
+
+  document.querySelectorAll("[data-note-edit]").forEach(button => {
+    button.onclick = async () => {
+      const note = await reqP(
+        extraStore("notes").get(button.dataset.noteEdit)
+      );
+
+      if (!note) return;
+
+      const title = prompt("Edit note title", note.title);
+      if (title === null) return;
+
+      const content = prompt("Edit note content", note.content);
+      if (content === null) return;
+
+      if (!title.trim() || !content.trim()) {
+        toast("Title and content cannot be empty");
+        return;
+      }
+
+      note.title = title.trim();
+      note.content = content.trim();
+      note.updated = Date.now();
+
+      await xput("notes", note);
+      await renderNotes();
+      await renderHome();
+
+      toast("Note updated");
     };
   });
 
-  document.querySelectorAll("[data-note-delete]").forEach(b=>{
-    b.onclick=async()=>{
-      if(confirm("Delete this note?")) {
-        await xdel("notes",b.dataset.noteDelete);
-        renderNotes();
+  document.querySelectorAll("[data-note-delete]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("Delete this note?")) return;
+
+      await xdel("notes", button.dataset.noteDelete);
+
+      await renderNotes();
+      await renderHome();
+
+      toast("Note deleted");
+    };
+  });
+
+  document.querySelectorAll("[data-note-bookmark]").forEach(button => {
+    button.onclick = async () => {
+      const note = await reqP(
+        extraStore("notes").get(button.dataset.noteBookmark)
+      );
+
+      if (note) {
+        await addBookmark("note", note.id, note.title);
       }
     };
   });
 }
 
-if($("exportNotePdfBtn")) {
-  $("exportNotePdfBtn").onclick=()=>{
-    const title=$("noteTitle").value.trim()||"StudyVault Notes";
-    const body=$("noteBody").value.trim();
-    if(!body)return toast("Write or open a note first");
+/* =========================================================
+   PLANNER
+========================================================= */
 
-    const w=window.open("","_blank");
-    if(!w)return toast("Allow pop-ups to export notes");
+/* ADD TASK */
 
-    w.document.write(`
-      <!DOCTYPE html><html><head><title>${esc(title)}</title>
-      <style>
-      body{font-family:Arial,sans-serif;padding:35px;line-height:1.7;color:#222}
-      h1{border-bottom:1px solid #ccc;padding-bottom:12px}
-      pre{white-space:pre-wrap;font-family:Arial,sans-serif}
-      </style></head><body>
-      <h1>${esc(title)}</h1><pre>${esc(body)}</pre>
-      </body></html>
-    `);
-    w.document.close();
-    w.focus();
-    setTimeout(()=>w.print(),500);
-  };
-}
+if ($("addTaskBtn")) {
+  $("addTaskBtn").onclick = async () => {
+    const title = $("taskTitle")?.value.trim() || "";
+    const subject = $("taskSubject")?.value.trim() || "General";
+    const date = $("taskDate")?.value || todayKey();
+    const time = $("taskTime")?.value || "";
+    const duration = Math.max(
+      1,
+      Number($("taskDuration")?.value) || 30
+    );
 
-/* PLANNER */
+    if (!title) {
+      toast("Enter a task name");
+      return;
+    }
 
-function taskHTML(t) {
-  return `<div class="task-item">
-    <button class="check ${t.done?"done":""}" data-task-check="${esc(t.id)}">${t.done?"✓":""}</button>
-    <div class="task-main">
-      <b>${esc(t.subject)} · ${esc(t.topic)}</b>
-      <small>${fmtMin(t.duration)} · ${t.done?"Completed":"Pending"}</small>
-    </div>
-    ${t.time?`<span class="task-time">${esc(t.time)}</span>`:""}
-    <button class="small-btn danger-outline task-delete" data-task-delete="${esc(t.id)}">Delete</button>
-  </div>`;
-}
-
-async function taskActions() {
-  document.querySelectorAll("[data-task-check]").forEach(b=>{
-    b.onclick=async()=>{
-      const t=await reqP(store("tasks").get(b.dataset.taskCheck));
-      if(!t)return;
-      t.done=!t.done;
-      t.completedAt=t.done?Date.now():null;
-      await put("tasks",t);
-      await renderTasks();
-      await renderHome();
-      await renderProgress();
-    };
-  });
-
-  document.querySelectorAll("[data-task-delete]").forEach(b=>{
-    b.onclick=async()=>{
-      if(!confirm("Delete this study task?"))return;
-      await del("tasks",b.dataset.taskDelete);
-      await renderTasks();
-      await renderHome();
-      await renderProgress();
-      toast("Study task deleted");
-    };
-  });
-}
-
-async function renderTasks() {
-  if(!$("plannerTasks"))return;
-  const ts=(await all("tasks")).sort((a,b)=>
-    (a.done-b.done)||(b.priority-a.priority)
-  );
-
-  $("plannerTasks").innerHTML=ts.length
-    ? ts.map(taskHTML).join("")
-    : '<div class="empty">No study targets yet. Add one above.</div>';
-
-  await taskActions();
-}
-
-if($("taskForm")) {
-  $("taskForm").onsubmit=async e=>{
-    e.preventDefault();
-
-    await put("tasks",{
-      id:uid(),
-      subject:$("subjectInput").value.trim(),
-      topic:$("topicInput").value.trim(),
-      duration:Math.max(5,+$("durationInput").value||60),
-      priority:+$("priorityInput").value,
-      done:false,
-      date:todayKey(),
-      time:""
+    await put("tasks", {
+      id: uid(),
+      title,
+      subject,
+      date,
+      time,
+      duration,
+      done: false,
+      created: Date.now()
     });
 
-    e.target.reset();
-    $("durationInput").value=60;
+    if ($("taskTitle")) $("taskTitle").value = "";
 
     await renderTasks();
     await renderHome();
-    await renderProgress();
-    toast("Study target added");
+
+    toast("Task added to planner");
   };
 }
 
-async function generatePlan() {
-  const hours=Math.max(1,Math.min(16,+$("availableHours").value||4));
-  let [h,m]=($("startTime").value||"07:00").split(":").map(Number);
-  let remaining=hours*60;
+/* RENDER TASKS */
 
-  const tasks=(await all("tasks"))
-    .filter(t=>!t.done)
-    .sort((a,b)=>(b.priority-a.priority)||(a.duration-b.duration));
+async function renderTasks() {
+  if (!$("taskList")) return;
 
-  for(const t of tasks) {
-    if(remaining<=0) t.time="Later";
-    else if(t.duration<=remaining) {
-      t.time=new Date(2000,0,1,h,m)
-        .toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-      const end=h*60+m+t.duration;
-      h=Math.floor(end/60)%24;
-      m=end%60;
-      remaining-=t.duration;
-    } else t.time="Later";
+  const tasks = (await all("tasks"))
+    .sort((a, b) => {
+      const dateCompare = String(a.date || "").localeCompare(
+        String(b.date || "")
+      );
 
-    await put("tasks",t);
-  }
+      if (dateCompare !== 0) return dateCompare;
 
-  await renderTasks();
-  await renderHome();
-  toast("Timetable generated");
+      return String(a.time || "").localeCompare(
+        String(b.time || "")
+      );
+    });
+
+  const selectedDate = $("plannerDate")?.value || "";
+
+  const visible = selectedDate
+    ? tasks.filter(task => task.date === selectedDate)
+    : tasks;
+
+  $("taskList").innerHTML = visible.length
+    ? visible.map(task => `
+      <div class="task-item ${task.done ? "completed" : ""}">
+        <div class="task-main">
+          <b>${esc(task.title)}</b>
+
+          <small>
+            ${esc(task.subject || "General")}
+            · ${esc(task.date || "")}
+            ${task.time ? " · " + esc(task.time) : ""}
+            · ${fmtMin(task.duration || 0)}
+          </small>
+        </div>
+
+        <div class="task-actions">
+          <button
+            class="small-btn"
+            data-task-done="${esc(task.id)}"
+          >
+            ${task.done ? "Undo" : "Done"}
+          </button>
+
+          <button
+            class="small-btn danger-outline"
+            data-task-delete="${esc(task.id)}"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    `).join("")
+    : '<div class="empty">No study targets for this date.</div>';
+
+  document.querySelectorAll("[data-task-done]").forEach(button => {
+    button.onclick = async () => {
+      const task = await reqP(
+        store("tasks").get(button.dataset.taskDone)
+      );
+
+      if (!task) return;
+
+      task.done = !task.done;
+
+      await put("tasks", task);
+      await renderTasks();
+      await renderHome();
+      await renderProgress();
+    };
+  });
+
+  document.querySelectorAll("[data-task-delete]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("Delete this planner task?")) return;
+
+      await del("tasks", button.dataset.taskDelete);
+
+      await renderTasks();
+      await renderHome();
+      await renderProgress();
+
+      toast("Task deleted");
+    };
+  });
 }
 
-if($("generateBtn"))$("generateBtn").onclick=generatePlan;
+if ($("plannerDate")) {
+  $("plannerDate").onchange = renderTasks;
+}
 
-/* HOME DASHBOARD */
+/* GENERATE SIMPLE TIMETABLE */
 
-function renderFolderNode(f,fs,vids) {
-  const ids=[f.id];
-  let changed=true;
+if ($("generateTimetableBtn")) {
+  $("generateTimetableBtn").onclick = async () => {
+    const subjects = ($("timetableSubjects")?.value || "")
+      .split(",")
+      .map(item => item.trim())
+      .filter(Boolean);
 
-  while(changed) {
-    changed=false;
-    for(const x of fs) {
-      if(x.parentId&&ids.includes(x.parentId)&&!ids.includes(x.id)) {
-        ids.push(x.id);
-        changed=true;
-      }
+    const start = $("timetableStart")?.value || "08:00";
+    const end = $("timetableEnd")?.value || "20:00";
+    const minutes = Math.max(
+      15,
+      Number($("timetableDuration")?.value) || 60
+    );
+
+    if (!subjects.length) {
+      toast("Enter subjects separated by commas");
+      return;
     }
-  }
 
-  const vv=vids.filter(v=>ids.includes(v.folderId));
-  const total=vv.reduce((s,v)=>s+(v.durationSeconds||0),0);
-  const watched=vv.reduce((s,v)=>s+Math.min(v.position||0,v.durationSeconds||v.position||0),0);
-  const complete=vv.filter(v=>v.completed).length;
-  const children=fs.filter(x=>x.parentId===f.id&&!x.isLinks)
-    .sort((a,b)=>a.name.localeCompare(b.name));
+    const startParts = start.split(":").map(Number);
+    const endParts = end.split(":").map(Number);
 
-  return `<div class="home-folder-card">
-    <button class="home-folder" data-home-folder="${esc(f.id)}">
-      <span class="folder-dot" style="background:${esc(f.color)}"></span>
-      <b>${esc(f.name)}</b>
-      <small>${vv.length} lectures · ${fmtMin(total/60)} total · ${fmtMin(watched/60)} watched · ${complete} complete</small>
-    </button>
-    ${children.map(c=>`<div class="nested-folder-wrap">${renderFolderNode(c,fs,vids)}</div>`).join("")}
-  </div>`;
+    let cursor = startParts[0] * 60 + startParts[1];
+    const finish = endParts[0] * 60 + endParts[1];
+
+    if (finish <= cursor) {
+      toast("End time must be after start time");
+      return;
+    }
+
+    const date = $("plannerDate")?.value || todayKey();
+
+    let index = 0;
+    let created = 0;
+
+    while (cursor + minutes <= finish && created < 100) {
+      const subject = subjects[index % subjects.length];
+
+      const hours = Math.floor(cursor / 60);
+      const mins = cursor % 60;
+
+      await put("tasks", {
+        id: uid(),
+        title: subject + " Study Session",
+        subject,
+        date,
+        time:
+          String(hours).padStart(2, "0") +
+          ":" +
+          String(mins).padStart(2, "0"),
+        duration: minutes,
+        done: false,
+        created: Date.now()
+      });
+
+      cursor += minutes + 10;
+      index++;
+      created++;
+    }
+
+    await renderTasks();
+    await renderHome();
+
+    toast("Timetable created");
+  };
 }
+
+/* =========================================================
+   HOME DASHBOARD
+========================================================= */
 
 async function renderHome() {
-  const tasks=(await all("tasks")).sort((a,b)=>(a.done-b.done));
-  const vids=await all("videos");
-  const today=tasks.filter(t=>t.date===todayKey());
+  const videos = await all("videos");
+  const links = await all("links");
+  const pdfs = await xall("pdfs");
+  const notes = await xall("notes");
+  const tasks = await all("tasks");
+  const folders = await all("folders");
 
-  if($("doneCount"))$("doneCount").textContent=today.filter(t=>t.done).length;
-  if($("videoCount"))$("videoCount").textContent=vids.length;
-  if($("hoursCount"))$("hoursCount").textContent=fmtMin(today.reduce((s,t)=>s+t.duration,0));
+  const completedVideos = videos.filter(video => video.completed);
+  const completedTasks = tasks.filter(task => task.done);
 
-  if($("todayTasks")) {
-    $("todayTasks").innerHTML=today.length
-      ? today.slice(0,5).map(taskHTML).join("")
-      : '<div class="empty">Your day is open. Add study targets in Planner.</div>';
-  }
+  const totalMinutes = videos.reduce((sum, video) => {
+    return sum + (
+      Number(video.durationSeconds || 0) / 60
+    );
+  }, 0);
 
-  const fs=await all("folders");
-  const roots=fs.filter(f=>!f.parentId&&!f.isLinks)
-    .sort((a,b)=>a.name.localeCompare(b.name));
+  const setText = (id, value) => {
+    if ($(id)) $(id).textContent = value;
+  };
 
-  if($("homeFolders")) {
-    $("homeFolders").innerHTML=roots.map(f=>renderFolderNode(f,fs,vids)).join("")
-      || '<div class="empty">Create your first subject folder in Videos.</div>';
-  }
+  setText("totalVideos", videos.length);
+  setText("totalLinks", links.length);
+  setText("totalPdfs", pdfs.length);
+  setText("totalNotes", notes.length);
+  setText("completedVideos", completedVideos.length);
+  setText("completedTasks", completedTasks.length);
+  setText("totalStudyHours", fmtMin(totalMinutes));
 
-  document.querySelectorAll("[data-home-folder]").forEach(b=>{
-    b.onclick=()=>{
-      switchTab("videos");
-      $("folderFilter").value=b.dataset.homeFolder;
-      renderVideos();
-    };
-  });
+  /* HOME FOLDER CARDS */
 
-  const recent=vids.filter(v=>v.lastWatched)
-    .sort((a,b)=>b.lastWatched-a.lastWatched).slice(0,4);
+  if ($("homeFolders")) {
+    const rootFolders = folders
+      .filter(folder => !folder.parentId && !folder.isLinks)
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-  if($("recentlyWatched")) {
-    $("recentlyWatched").innerHTML=recent.length
-      ? recent.map(v=>videoHTML(v,false,fs)).join("")
-      : '<div class="empty">Videos you play will appear here.</div>';
-  }
+    $("homeFolders").innerHTML = rootFolders.length
+      ? rootFolders.map(folder => {
+          const childIds = folders
+            .filter(item => item.parentId === folder.id)
+            .map(item => item.id);
 
-  const added=[...vids].sort((a,b)=>(b.added||0)-(a.added||0)).slice(0,3);
+          const ids = [folder.id, ...childIds];
 
-  if($("recentVideos")) {
-    $("recentVideos").innerHTML=added.length
-      ? added.map(v=>videoHTML(v,false,fs)).join("")
-      : '<div class="empty">Your lecture library is waiting for its first video.</div>';
-  }
+          const videoCount = videos.filter(video =>
+            ids.includes(video.folderId)
+          ).length;
 
-  document.querySelectorAll("[data-edit-video]").forEach(b=>{
-    b.onclick=async()=>{
-      const v=await reqP(store("videos").get(b.dataset.editVideo));
-      if(!v)return;
-      const name=prompt("Edit video title",v.name);
-      if(name&&name.trim()) {
-        v.name=name.trim();
-        await put("videos",v);
-        await renderVideos();
-        await renderHome();
-      }
-    };
-  });
+          const linkCount = links.filter(link =>
+            link.parentFolderId === folder.id ||
+            ids.includes(link.folderId)
+          ).length;
 
-  document.querySelectorAll("[data-play]").forEach(b=>
-    b.onclick=()=>playVideo(b.dataset.play)
-  );
+          const pdfCount = pdfs.filter(pdf =>
+            ids.includes(pdf.folderId)
+          ).length;
 
-  await taskActions();
+          const noteCount = notes.filter(note =>
+            ids.includes(note.folderId)
+          ).length;
 
-  const pdfs=await xall("pdfs");
-  const mocks=await xall("history");
+          return `
+            <button
+              class="folder-card"
+              data-open-folder="${esc(folder.id)}"
+              style="--folder-color:${esc(folder.color)}"
+            >
+              <span class="folder-icon">📁</span>
+              <b>${esc(folder.name)}</b>
+              <small>
+                ${videoCount} Videos · ${linkCount} Links
+              </small>
+              <small>
+                ${pdfCount} PDFs · ${noteCount} Notes
+              </small>
+            </button>
+          `;
+        }).join("")
+      : '<div class="empty">Create your first subject folder.</div>';
 
-  if($("homePdfCount"))$("homePdfCount").textContent=pdfs.length;
-  if($("homeMockCount"))$("homeMockCount").textContent=
-    mocks.filter(x=>x.type==="mock").length;
-
-  const streak=await calculateStreak();
-  if($("homeStreak"))$("homeStreak").textContent=streak;
-}
-
-/* ANALYTICS AND STUDY STREAK */
-
-async function calculateStreak() {
-  const tasks=await all("tasks");
-  const dates=new Set(tasks.filter(t=>t.done).map(t=>t.date).filter(Boolean));
-
-  let streak=0;
-  const d=new Date();
-
-  if(!dates.has(todayKey()))d.setDate(d.getDate()-1);
-
-  while(dates.has(
-    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
-  )) {
-    streak++;
-    d.setDate(d.getDate()-1);
-  }
-
-  return streak;
-}
-
-async function renderProgress() {
-  const ts=await all("tasks");
-  const vids=await all("videos");
-  const done=ts.filter(t=>t.done).length;
-  const total=ts.length;
-  const pct=total?Math.round(done/total*100):0;
-
-  if($("progressPercent"))$("progressPercent").textContent=pct+"%";
-
-  if($("progressRing")) {
-    $("progressRing").style.background=
-      `conic-gradient(var(--accent2) ${pct*3.6}deg,#343d5c 0deg)`;
-  }
-
-  if($("progressTitle")) {
-    $("progressTitle").textContent=
-      pct===100&&total?"Excellent consistency!":total?"Keep building momentum":"A fresh start";
-  }
-
-  if($("progressText")) {
-    $("progressText").textContent=total
-      ? `${done} of ${total} study targets completed.`
-      : "Add a study target to begin tracking progress.";
-  }
-
-  if($("totalTasks"))$("totalTasks").textContent=total;
-  if($("completedTasks"))$("completedTasks").textContent=done;
-  if($("totalMinutes"))$("totalMinutes").textContent=
-    ts.reduce((s,t)=>s+t.duration,0);
-
-  const watched=vids.reduce((s,v)=>s+(v.position||0),0);
-
-  if($("analyticsStudyHours")) {
-    $("analyticsStudyHours").textContent=
-      (watched/3600).toFixed(1)+" h";
-  }
-
-  if($("analyticsStreak")) {
-    $("analyticsStreak").textContent=await calculateStreak();
-  }
-
-  const history=await xall("history");
-  const mocks=history.filter(x=>x.type==="mock");
-  const avg=mocks.length
-    ? Math.round(mocks.reduce((s,x)=>s+(x.percent||0),0)/mocks.length)
-    : 0;
-
-  if($("analyticsMockAverage")) {
-    $("analyticsMockAverage").textContent=avg+"%";
-  }
-
-  const subjects={};
-  for(const t of ts) {
-    const key=t.subject||"Other";
-    if(!subjects[key])subjects[key]={total:0,done:0,minutes:0};
-    subjects[key].total++;
-    if(t.done)subjects[key].done++;
-    subjects[key].minutes+=t.duration||0;
-  }
-
-  if($("subjectAnalytics")) {
-    $("subjectAnalytics").innerHTML=Object.keys(subjects).length
-      ? Object.entries(subjects).map(([name,s])=>`
-        <div class="task-item">
-          <div class="task-main">
-            <b>${esc(name)}</b>
-            <small>${s.done}/${s.total} targets · ${fmtMin(s.minutes)}</small>
-          </div>
-          <b>${Math.round(s.done/s.total*100)}%</b>
-        </div>`).join("")
-      : '<div class="empty">Subject analytics will appear after you add study targets.</div>';
-  }
-
-  const weak=Object.entries(subjects)
-    .filter(([,s])=>s.total>0)
-    .sort((a,b)=>(a[1].done/a[1].total)-(b[1].done/b[1].total))
-    .slice(0,3);
-
-  if($("weakTopics")) {
-    $("weakTopics").innerHTML=weak.length
-      ? weak.map(([name,s])=>`
-        <div class="task-item">
-          <div class="task-main"><b>${esc(name)}</b>
-          <small>${s.done} of ${s.total} completed</small></div>
-        </div>`).join("")
-      : '<div class="empty">No weak subjects detected yet.</div>';
-  }
-
-  await renderBookmarks();
-}
-
-/* BOOKMARKS */
-
-async function addBookmark(type,id,title,url="") {
-  const existing=(await xall("bookmarks"))
-    .find(b=>b.type===type&&b.itemId===id);
-
-  if(existing) {
-    await xdel("bookmarks",existing.id);
-    toast("Bookmark removed");
-  } else {
-    await xput("bookmarks",{
-      id:uid(),type,itemId:id,title,url,added:Date.now()
+    document.querySelectorAll("[data-open-folder]").forEach(button => {
+      button.onclick = () => openFolder(button.dataset.openFolder);
     });
-    toast("Added to bookmarks");
   }
+
+  /* RECENTLY WATCHED */
+
+  if ($("recentVideos")) {
+    const recent = [
+      ...videos.map(video => ({
+        id: video.id,
+        title: video.name,
+        type: "video",
+        date: video.lastWatched || video.added || 0
+      })),
+      ...links.map(link => ({
+        id: link.id,
+        title: link.title,
+        type: "youtube",
+        date: link.lastWatched || link.added || 0
+      }))
+    ]
+      .sort((a, b) => b.date - a.date)
+      .slice(0, 6);
+
+    $("recentVideos").innerHTML = recent.length
+      ? recent.map(item => `
+          <div class="task-item">
+            <div class="task-main">
+              <b>${esc(item.title)}</b>
+              <small>${esc(item.type)}</small>
+            </div>
+
+            <button
+              class="small-btn"
+              data-recent-type="${esc(item.type)}"
+              data-recent-id="${esc(item.id)}"
+            >
+              Open
+            </button>
+          </div>
+        `).join("")
+      : '<div class="empty">Your recently watched lectures will appear here.</div>';
+
+    document.querySelectorAll("[data-recent-id]").forEach(button => {
+      button.onclick = () => {
+        if (button.dataset.recentType === "video") {
+          playVideo(button.dataset.recentId);
+        } else {
+          playYoutube(button.dataset.recentId);
+        }
+      };
+    });
+  }
+
+  /* TODAY'S PLANNER */
+
+  if ($("todayTasks")) {
+    const todayTasks = tasks.filter(task =>
+      task.date === todayKey()
+    );
+
+    $("todayTasks").innerHTML = todayTasks.length
+      ? todayTasks.map(task => `
+          <div class="task-item">
+            <div class="task-main">
+              <b>${esc(task.title)}</b>
+              <small>
+                ${esc(task.time || "")}
+                · ${fmtMin(task.duration || 0)}
+              </small>
+            </div>
+            <b>${task.done ? "✓" : "○"}</b>
+          </div>
+        `).join("")
+      : '<div class="empty">No tasks planned for today.</div>';
+  }
+
   await renderBookmarks();
+}
+
+/* OPEN FOLDER */
+
+async function openFolder(folderId) {
+  const folders = await all("folders");
+  const folder = folders.find(item => item.id === folderId);
+
+  if (!folder) {
+    toast("Folder not found");
+    return;
+  }
+
+  currentFolderId = folderId;
+
+  if ($("folderFilter")) {
+    $("folderFilter").value = folderId;
+  }
+
+  if ($("folderViewTitle")) {
+    $("folderViewTitle").textContent = folder.name;
+  }
+
+  if ($("folderBackBtn")) {
+    $("folderBackBtn").hidden = false;
+  }
+
+  if ($("folderContents")) {
+    $("folderContents").hidden = false;
+  }
+
+  if ($("homeFolders")) {
+    $("homeFolders").hidden = true;
+  }
+
+  const show = id => {
+    const element = $(id);
+    if (element) element.hidden = false;
+  };
+
+  show("folderContents");
+  switchTab("videos");
+
+  await renderVideos();
+  await renderLinks();
+  await renderPdfs();
+  await renderNotes();
+}
+
+/* BACK TO HOME FOLDERS */
+
+function closeFolderView() {
+  currentFolderId = null;
+
+  if ($("folderFilter")) {
+    $("folderFilter").value = "all";
+  }
+
+  if ($("folderBackBtn")) {
+    $("folderBackBtn").hidden = true;
+  }
+
+  if ($("folderContents")) {
+    $("folderContents").hidden = true;
+  }
+
+  if ($("homeFolders")) {
+    $("homeFolders").hidden = false;
+  }
+
+  renderHome();
+}
+
+if ($("folderBackBtn")) {
+  $("folderBackBtn").onclick = closeFolderView;
+}
+
+/* =========================================================
+   END OF PART 2
+   PART 3 CONTINUES WITH ANALYTICS, BOOKMARKS,
+   MOCK, REMINDERS, BACKUP AND STARTUP.
+========================================================= */
+/* =========================================================
+   STUDYVAULT - COMPLETE APP UPDATE
+   PART 3 OF 3
+   ANALYTICS, BOOKMARKS, MOCK, SEARCH, BACKUP, STARTUP
+========================================================= */
+
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+async function saveHistory(type, id, title) {
+  try {
+    const history = await xall("history");
+    const old = history.find(item =>
+      item.type === type && String(item.itemId) === String(id)
+    );
+
+    const record = {
+      id: old ? old.id : uid(),
+      type,
+      itemId: id,
+      title: title || "Untitled",
+      date: todayKey(),
+      timestamp: Date.now()
+    };
+
+    await xput("history", record);
+  } catch (error) {
+    console.error("History error:", error);
+  }
+}
+
+
+/* =========================================================
+   BOOKMARKS
+========================================================= */
+
+async function addBookmark(type, id, title, url = "") {
+  try {
+    const bookmarks = await xall("bookmarks");
+    const existing = bookmarks.find(item =>
+      item.type === type && String(item.itemId) === String(id)
+    );
+
+    if (existing) {
+      await xdel("bookmarks", existing.id);
+      toast("Bookmark removed");
+    } else {
+      await xput("bookmarks", {
+        id: uid(),
+        type,
+        itemId: id,
+        title: title || "Untitled",
+        url,
+        createdAt: Date.now()
+      });
+      toast("Added to bookmarks");
+    }
+
+    await renderBookmarks();
+  } catch (error) {
+    console.error(error);
+    toast("Bookmark update failed");
+  }
 }
 
 async function renderBookmarks() {
-  if(!$("bookmarkList"))return;
+  const container = $("bookmarkList");
+  if (!container) return;
 
-  const items=await xall("bookmarks");
+  try {
+    const bookmarks = await xall("bookmarks");
 
-  $("bookmarkList").innerHTML=items.length
-    ? items.map(b=>`
-      <div class="task-item">
-        <div class="task-main"><b>${esc(b.title)}</b>
-        <small>${esc(b.type)}</small></div>
-        <button class="small-btn danger-outline" data-bookmark-remove="${esc(b.id)}">Remove</button>
-      </div>`).join("")
-    : '<div class="empty">Save useful lectures and notes as bookmarks.</div>';
+    if (!bookmarks.length) {
+      container.innerHTML = '<p class="empty-state">No bookmarks yet.</p>';
+      return;
+    }
 
-  document.querySelectorAll("[data-bookmark-remove]").forEach(b=>{
-    b.onclick=async()=>{
-      await xdel("bookmarks",b.dataset.bookmarkRemove);
-      renderBookmarks();
+    container.innerHTML = bookmarks
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .map(item => `
+        <div class="bookmark-item">
+          <div>
+            <strong>${esc(item.title || "Untitled")}</strong>
+            <small>${esc(item.type || "")}</small>
+          </div>
+          <button data-open-bookmark="${esc(item.id)}">Open</button>
+          <button data-remove-bookmark="${esc(item.id)}">Remove</button>
+        </div>
+      `).join("");
+
+    container.querySelectorAll("[data-open-bookmark]").forEach(button => {
+      button.addEventListener("click", () => {
+        openBookmark(button.dataset.openBookmark);
+      });
+    });
+
+    container.querySelectorAll("[data-remove-bookmark]").forEach(button => {
+      button.addEventListener("click", async () => {
+        await xdel("bookmarks", button.dataset.removeBookmark);
+        renderBookmarks();
+      });
+    });
+  } catch (error) {
+    console.error(error);
+    container.innerHTML = '<p>Could not load bookmarks.</p>';
+  }
+}
+
+async function openBookmark(bookmarkId) {
+  const bookmarks = await xall("bookmarks");
+  const item = bookmarks.find(b => String(b.id) === String(bookmarkId));
+  if (!item) return toast("Bookmark not found");
+
+  if (item.type === "video") {
+    await playVideo(item.itemId);
+  } else if (item.type === "youtube") {
+    await playYoutube(item.itemId);
+  } else if (item.type === "pdf") {
+    await openPdf(item.itemId);
+  } else if (item.type === "note") {
+    switchTab("notes");
+    toast("Find this note in Notes");
+  }
+}
+
+
+/* =========================================================
+   STUDY ANALYTICS
+========================================================= */
+
+async function renderProgress() {
+  try {
+    const videos = await all("videos");
+    const folders = await all("folders");
+    const tasks = await all("tasks");
+    const history = await xall("history");
+
+    const completedVideos = videos.filter(video =>
+      video.completed === true ||
+      video.isCompleted === true ||
+      video.status === "completed"
+    ).length;
+
+    const totalVideos = videos.length;
+    const completedTasks = tasks.filter(task =>
+      task.completed === true || task.done === true
+    ).length;
+
+    const totalTasks = tasks.length;
+
+    const watchedSeconds = videos.reduce((sum, video) => {
+      return sum + Number(
+        video.watchedSeconds ||
+        video.watchTime ||
+        video.progressSeconds ||
+        0
+      );
+    }, 0);
+
+    const hours = Math.floor(watchedSeconds / 3600);
+    const minutes = Math.floor((watchedSeconds % 3600) / 60);
+
+    const setText = (id, value) => {
+      const element = $(id);
+      if (element) element.textContent = value;
     };
-  });
-}
 
-/* HISTORY */
+    setText("progressVideos", totalVideos);
+    setText("progressCompleted", completedVideos);
+    setText("progressTasks", `${completedTasks}/${totalTasks}`);
+    setText("progressWatchTime", `${hours}h ${minutes}m`);
+    setText("totalVideos", totalVideos);
 
-async function saveHistory(type,id,title) {
-  await xput("history",{
-    id:uid(),type,itemId:id,title,at:Date.now()
-  });
-}
+    const percentage = totalVideos
+      ? Math.round(completedVideos / totalVideos * 100)
+      : 0;
 
-/* MOCK QUESTION BANK */
+    setText("progressPercentage", `${percentage}%`);
 
-const GK = [
-["Polity","Which part of the Constitution contains Fundamental Rights?","Part III",["Part II","Part IV","Part IVA"],"Fundamental Rights are listed in Part III."],
-["Polity","Who is the constitutional head of the Union?","President",["Prime Minister","Chief Justice","Lok Sabha Speaker"],"The President is the constitutional head of the Union."],
-["Polity","The Anti-Defection Law is in which Schedule?","Tenth Schedule",["Ninth Schedule","Eleventh Schedule","Twelfth Schedule"],"The Tenth Schedule deals with disqualification on grounds of defection."],
-["Geography","Which is the longest river in India by length within the country?","Ganga",["Godavari","Narmada","Krishna"],"The Ganga is generally identified as India's longest river."],
-["Geography","Black soil is especially suitable for which crop?","Cotton",["Tea","Jute","Coffee"],"Black soil retains moisture and is well suited to cotton."],
-["History","Who founded the Mughal Empire in India?","Babur",["Akbar","Humayun","Sher Shah Suri"],"Babur established Mughal rule after the First Battle of Panipat in 1526."],
-["History","The Qutub Minar was begun by whom?","Qutb-ud-din Aibak",["Iltutmish","Alauddin Khilji","Balban"],"Qutb-ud-din Aibak began its construction."],
-["Economics","What does GDP measure?","Value of final goods and services produced within a country",["Only exports","Government tax revenue","Total money supply"],"GDP measures the value of final goods and services produced within a country's borders."],
-["Physics","What is the SI unit of force?","Newton",["Joule","Watt","Pascal"],"Force is measured in newtons."],
-["Physics","Which instrument measures electric current?","Ammeter",["Voltmeter","Barometer","Ohmmeter"],"An ammeter measures electric current."],
-["Chemistry","What is the chemical symbol of sodium?","Na",["So","S","N"],"Sodium's symbol is Na."],
-["Chemistry","A solution with pH below 7 is generally what?","Acidic",["Basic","Neutral","Saline"],"At standard conditions, pH below 7 indicates an acidic solution."],
-["Biology","Which cell organelle is called the powerhouse of the cell?","Mitochondrion",["Ribosome","Nucleus","Golgi body"],"Mitochondria generate most cellular ATP."],
-["Biology","Which pigment helps plants absorb light for photosynthesis?","Chlorophyll",["Haemoglobin","Melanin","Keratin"],"Chlorophyll absorbs light energy for photosynthesis."]
-];
+    const bar = $("progressBar");
+    if (bar) bar.style.width = `${percentage}%`;
 
-function noteQuestions(textValue) {
-  const sentences=textValue.split(/[.!?\n]+/)
-    .map(s=>s.trim()).filter(s=>s.split(/\s+/).length>=5);
+    const subjectContainer = $("subjectProgress");
 
-  const out=[];
+    if (subjectContainer) {
+      const subjectMap = {};
 
-  for(const sentence of shuffle(sentences)) {
-    const words=sentence.match(/[A-Za-z][A-Za-z-]{3,}/g)||[];
-    const candidates=words.filter(w=>
-      !["which","their","there","these","those","about","between","because","where","after","before"].includes(w.toLowerCase())
+      for (const folder of folders) {
+        const name = folder.name || "Other";
+        subjectMap[name] = {
+          total: 0,
+          completed: 0
+        };
+      }
+
+      for (const video of videos) {
+        const folder = folders.find(f =>
+          String(f.id) === String(video.folderId)
+        );
+        const name = folder ? folder.name : "Other";
+
+        if (!subjectMap[name]) {
+          subjectMap[name] = { total: 0, completed: 0 };
+        }
+
+        subjectMap[name].total++;
+
+        if (
+          video.completed === true ||
+          video.isCompleted === true ||
+          video.status === "completed"
+        ) {
+          subjectMap[name].completed++;
+        }
+      }
+
+      subjectContainer.innerHTML = Object.entries(subjectMap)
+        .map(([name, data]) => {
+          const percent = data.total
+            ? Math.round(data.completed / data.total * 100)
+            : 0;
+
+          return `
+            <div class="subject-progress-item">
+              <div class="progress-heading">
+                <strong>${esc(name)}</strong>
+                <span>${data.completed}/${data.total}</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width:${percent}%"></div>
+              </div>
+            </div>
+          `;
+        }).join("");
+    }
+
+    const dates = new Set(
+      history.map(item => item.date).filter(Boolean)
     );
 
-    if(!candidates.length)continue;
+    let streak = 0;
+    const cursor = new Date();
 
-    const answer=candidates[Math.floor(Math.random()*candidates.length)];
-    const masked=sentence.replace(answer,"_____");
-    const distract=shuffle([...new Set(words.filter(w=>w.toLowerCase()!==answer.toLowerCase()))]).slice(0,3);
+    while (true) {
+      const key = [
+        cursor.getFullYear(),
+        String(cursor.getMonth() + 1).padStart(2, "0"),
+        String(cursor.getDate()).padStart(2, "0")
+      ].join("-");
 
-    while(distract.length<3)distract.push("Option "+(distract.length+1));
+      if (!dates.has(key)) break;
 
-    out.push({
-      q:`Complete the statement: ${masked}`,
-      a:answer,
-      o:shuffle([answer,...distract]),
-      why:`Answer taken from your notes: ${sentence}`,
-      type:"single"
-    });
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
 
-    if(out.length>=20)break;
+    setText("studyStreak", `${streak} days`);
+
+  } catch (error) {
+    console.error("Progress error:", error);
   }
-
-  return out;
 }
 
-function makeGKQuestions(subject,language) {
-  let bank=GK.filter(q=>subject==="mixed"||q[0].toLowerCase()===subject.toLowerCase());
 
-  if(language==="hi") {
-    const translations={
-      "Which part of the Constitution contains Fundamental Rights?":"मौलिक अधिकार संविधान के किस भाग में हैं?",
-      "Who is the constitutional head of the Union?":"संघ का संवैधानिक प्रमुख कौन है?",
-      "The Anti-Defection Law is in which Schedule?":"दल-बदल विरोधी कानून किस अनुसूची में है?",
-      "Which is the longest river in India by length within the country?":"भारत में देश के भीतर सबसे लंबी नदी कौन सी है?",
-      "Black soil is especially suitable for which crop?":"काली मिट्टी किस फसल के लिए विशेष रूप से उपयुक्त है?",
-      "Who founded the Mughal Empire in India?":"भारत में मुगल साम्राज्य की स्थापना किसने की?",
-      "The Qutub Minar was begun by whom?":"कुतुब मीनार का निर्माण किसने शुरू करवाया?",
-      "What does GDP measure?":"GDP क्या मापता है?",
-      "What is the SI unit of force?":"बल की SI इकाई क्या है?",
-      "Which instrument measures electric current?":"विद्युत धारा मापने का यंत्र कौन सा है?",
-      "What is the chemical symbol of sodium?":"सोडियम का रासायनिक संकेत क्या है?",
-      "A solution with pH below 7 is generally what?":"pH 7 से कम वाला विलयन सामान्यतः कैसा होता है?",
-      "Which cell organelle is called the powerhouse of the cell?":"कोशिका का पावरहाउस किस अंगक को कहा जाता है?",
-      "Which pigment helps plants absorb light for photosynthesis?":"प्रकाश संश्लेषण के लिए पौधे किस वर्णक से प्रकाश अवशोषित करते हैं?"
-    };
-    bank=bank.map(q=>[q[0],translations[q[1]]||q[1],q[2],q[3],q[4]]);
+/* =========================================================
+   MOCK QUESTION BANK
+   Offline sample questions. No AI generation is claimed.
+========================================================= */
+
+const studyVaultGK = [
+  {
+    subject: "Polity",
+    difficulty: "easy",
+    question: "भारतीय संविधान कब लागू हुआ? / When did the Indian Constitution come into force?",
+    options: ["15 August 1947", "26 January 1950", "26 November 1949", "2 October 1950"],
+    answer: 1,
+    explanation: "भारतीय संविधान 26 जनवरी 1950 को लागू हुआ।",
+    tip: "26 January = Republic Day."
+  },
+  {
+    subject: "Polity",
+    difficulty: "medium",
+    question: "अनुच्छेद 21 किससे संबंधित है? / Article 21 deals with:",
+    options: ["Equality", "Freedom of religion", "Life and personal liberty", "Education"],
+    answer: 2,
+    explanation: "अनुच्छेद 21 जीवन और व्यक्तिगत स्वतंत्रता की सुरक्षा देता है।",
+    tip: "Article 21 = Right to Life."
+  },
+  {
+    subject: "History",
+    difficulty: "easy",
+    question: "भारत छोड़ो आंदोलन कब शुरू हुआ? / When did the Quit India Movement begin?",
+    options: ["1930", "1942", "1919", "1947"],
+    answer: 1,
+    explanation: "भारत छोड़ो आंदोलन अगस्त 1942 में शुरू हुआ।",
+    tip: "Quit India = 1942."
+  },
+  {
+    subject: "Geography",
+    difficulty: "easy",
+    question: "भारत की सबसे लंबी नदी कौन-सी है? / Which is the longest river in India?",
+    options: ["Yamuna", "Godavari", "Ganga", "Narmada"],
+    answer: 2,
+    explanation: "भारत में बहने वाली सबसे लंबी नदी गंगा है।",
+    tip: "Ganga is the longest river flowing within India."
+  },
+  {
+    subject: "Economics",
+    difficulty: "medium",
+    question: "भारत का केंद्रीय बैंक कौन-सा है? / What is India's central bank?",
+    options: ["SBI", "RBI", "NABARD", "SEBI"],
+    answer: 1,
+    explanation: "भारतीय रिजर्व बैंक भारत का केंद्रीय बैंक है।",
+    tip: "RBI = Reserve Bank of India."
+  },
+  {
+    subject: "Science",
+    difficulty: "easy",
+    question: "बल की SI इकाई क्या है? / What is the SI unit of force?",
+    options: ["Joule", "Watt", "Newton", "Pascal"],
+    answer: 2,
+    explanation: "बल की SI इकाई न्यूटन है।",
+    tip: "F = ma, unit = kg m/s² = Newton."
+  },
+  {
+    subject: "Science",
+    difficulty: "medium",
+    question: "प्रकाश की चाल लगभग कितनी है? / Approximate speed of light?",
+    options: ["3 × 10⁶ m/s", "3 × 10⁸ m/s", "3 × 10⁵ m/s", "3 × 10¹⁰ m/s"],
+    answer: 1,
+    explanation: "निर्वात में प्रकाश की चाल लगभग 3 × 10⁸ m/s है।",
+    tip: "Remember 3 lakh km per second."
+  },
+  {
+    subject: "Biology",
+    difficulty: "easy",
+    question: "मानव शरीर की सबसे बड़ी ग्रंथि कौन-सी है? / Largest gland in the human body?",
+    options: ["Pancreas", "Thyroid", "Liver", "Pituitary"],
+    answer: 2,
+    explanation: "यकृत (Liver) मानव शरीर की सबसे बड़ी ग्रंथि है।",
+    tip: "Liver is also a major metabolic organ."
+  },
+  {
+    subject: "Chemistry",
+    difficulty: "easy",
+    question: "पानी का रासायनिक सूत्र क्या है? / Chemical formula of water?",
+    options: ["CO2", "H2O", "O2", "NaCl"],
+    answer: 1,
+    explanation: "पानी में दो हाइड्रोजन और एक ऑक्सीजन परमाणु होता है।",
+    tip: "H2O = 2 Hydrogen + 1 Oxygen."
+  },
+  {
+    subject: "Physics",
+    difficulty: "medium",
+    question: "विद्युत धारा की SI इकाई क्या है? / SI unit of electric current?",
+    options: ["Volt", "Ohm", "Ampere", "Coulomb"],
+    answer: 2,
+    explanation: "विद्युत धारा की SI इकाई एम्पियर है।",
+    tip: "Current = Ampere."
+  }
+];
+
+
+/* =========================================================
+   MOCK PDF TEXT EXTRACTION
+========================================================= */
+
+async function extractPdfText(pdfRecord) {
+  if (!pdfRecord || !pdfRecord.blob) return "";
+
+  if (!window.pdfjsLib) {
+    throw new Error("PDF text reader is not available in this app.");
   }
 
-  return bank.map(q=>({
-    q:q[1],a:q[2],o:shuffle([q[2],...q[3]]),why:q[4],type:"single"
-  }));
-}
+  const data = await pdfRecord.blob.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({
+    data: new Uint8Array(data)
+  }).promise;
 
-/* PDF TEXT EXTRACTION FOR MOCK */
+  let text = "";
 
-async function extractPdfText(file) {
-  if(!window.pdfjsLib) {
-    await new Promise((resolve,reject)=>{
-      const s=document.createElement("script");
-      s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-      s.onload=resolve;
-      s.onerror=reject;
-      document.head.appendChild(s);
-    });
-  }
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc=
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-  const data=await file.arrayBuffer();
-  const pdf=await pdfjsLib.getDocument({data}).promise;
-  let text="";
-
-  for(let i=1;i<=pdf.numPages;i++) {
-    const page=await pdf.getPage(i);
-    const content=await page.getTextContent();
-    text+=content.items.map(x=>x.str).join(" ")+"\n";
+    text += content.items
+      .map(item => item.str || "")
+      .join(" ") + "\n";
   }
 
   return text;
 }
 
-/* MOCK ENGINE */
+function makeQuestionsFromText(textContent, subject) {
+  const sentences = textContent
+    .replace(/\s+/g, " ")
+    .split(/[।.!?]\s+/)
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence.length > 35 && sentence.length < 300);
 
-function prepareQuestion(q,index) {
-  return {
-    id:uid(),
-    q:q.q,
-    a:q.a,
-    o:q.o||[],
-    why:q.why||"",
-    type:q.type||"single",
-    index
-  };
+  return sentences.slice(0, 30).map((sentence, index) => ({
+    subject: subject || "Notes",
+    difficulty: "medium",
+    question: `इस कथन को पढ़ें / Read the following statement:\n\n${sentence}\n\nयह प्रश्न आपके नोट्स से बनाया गया है। / This is a practice question from your notes.`,
+    options: [
+      "True / सही",
+      "False / गलत"
+    ],
+    answer: 0,
+    explanation: "यह कथन आपके PDF/Notes के टेक्स्ट से लिया गया है। उत्तर की पुष्टि अपने मूल नोट्स से करें।",
+    tip: "अपने नोट्स के मुख्य तथ्य दोहराएँ।"
+  }));
 }
 
-if($("startQuizBtn")) {
-  $("startQuizBtn").onclick=async()=>{
-    try {
-      const source=$("quizSource").value;
-      const subject=$("quizSubject").value;
-      const language=$("quizLanguage").value;
-      const notes=$("quizNotes").value.trim();
-      const difficulty=$("quizDifficulty").value;
-      const count=Math.max(1,Math.min(100,+$("quizCount").value||10));
 
-      let bank=[];
+/* =========================================================
+   MOCK ENGINE
+========================================================= */
 
-      if(source==="notes"||source==="both") {
-        bank.push(...noteQuestions(notes));
-      }
+async function prepareMockQuestions() {
+  const sourceElement = $("quizSource");
+  const subjectElement = $("quizSubject");
+  const pdfElement = $("quizPdf");
+  const difficultyElement = $("quizDifficulty");
+  const countElement = $("quizCount");
 
-      if(source==="gk"||source==="both") {
-        bank.push(...makeGKQuestions(subject,language));
-      }
-
-      if(source==="pdf") {
-        const file=$("quizPdf").files[0];
-        if(!file) {
-          $("quizArea").innerHTML='<div class="empty">Choose a PDF file first.</div>';
-          return;
-        }
-        toast("Reading PDF. Please wait...");
-        const extracted=await extractPdfText(file);
-        bank.push(...noteQuestions(extracted));
-      }
-
-      if(!bank.length) {
-        $("quizArea").innerHTML=
-          '<div class="empty">No questions found. Paste clear notes or select GK mode.</div>';
-        return;
-      }
-
-      quizQuestions=shuffle(bank).slice(0,count).map(prepareQuestion);
-      quizIndex=0;
-      quizScore=0;
-      quizCorrect=0;
-      quizWrong=0;
-      quizAnswered=false;
-
-      const minutes=+$("quizTimer").value||0;
-      quizSeconds=minutes*60;
-
-      clearInterval(quizTimerInterval);
-      if(minutes>0) {
-        quizTimerInterval=setInterval(()=>{
-          quizSeconds--;
-          const timer=$("mockTimer");
-          if(timer)timer.textContent=
-            `${Math.floor(quizSeconds/60)}:${String(quizSeconds%60).padStart(2,"0")}`;
-          if(quizSeconds<=0)finishMock();
-        },1000);
-      }
-
-      showQuestion();
-    } catch(err) {
-      console.error(err);
-      $("quizArea").innerHTML=
-        '<div class="empty">Could not create the Mock. Check the PDF or notes and try again.</div>';
-    }
-  };
-}
-
-function showQuestion() {
-  if(quizIndex>=quizQuestions.length)return finishMock();
-
-  const q=quizQuestions[quizIndex];
-  const multiple=$("questionType")?.value==="multiple";
-
-  $("quizArea").innerHTML=`
-    <div class="panel quiz-card">
-      <div class="quiz-progress">
-        Question ${quizIndex+1} of ${quizQuestions.length}
-        · Correct ${quizCorrect} · Wrong ${quizWrong}
-        <span id="mockTimer"></span>
-      </div>
-      <h3>${esc(q.q)}</h3>
-      <div class="quiz-options">
-        ${q.o.map((o,i)=>`
-          <button class="quiz-option" data-answer="${i}">
-            ${String.fromCharCode(65+i)}. ${esc(o)}
-          </button>`).join("")}
-      </div>
-      <div id="quizFeedback"></div>
-      <button id="quizNext" class="primary full" disabled>
-        ${quizIndex===quizQuestions.length-1?"Finish Mock":"Next question"}
-      </button>
-    </div>`;
-
-  document.querySelectorAll("[data-answer]").forEach(b=>
-    b.onclick=()=>answerQuestion(+b.dataset.answer)
+  const source = sourceElement ? sourceElement.value : "mixed";
+  const subject = subjectElement ? subjectElement.value : "all";
+  const difficulty = difficultyElement ? difficultyElement.value : "all";
+  const count = Math.max(
+    1,
+    Math.min(100, Number(countElement ? countElement.value : 10) || 10)
   );
 
-  $("quizNext").onclick=nextQuestion;
+  let questions = [];
+
+  if (source === "gk" || source === "mixed") {
+    questions = questions.concat(studyVaultGK);
+  }
+
+  if (source === "notes" || source === "mixed") {
+    const notes = await xall("notes");
+
+    for (const note of notes) {
+      const content = `${note.title || ""}. ${note.content || note.text || ""}`;
+      const generated = makeQuestionsFromText(content, note.subject);
+      questions = questions.concat(generated);
+    }
+  }
+
+  if (source === "pdf") {
+    const pdfId = pdfElement ? pdfElement.value : "";
+
+    if (!pdfId) {
+      throw new Error("Please select a saved PDF first.");
+    }
+
+    const pdfs = await xall("pdfs");
+    const selectedPdf = pdfs.find(pdf =>
+      String(pdf.id) === String(pdfId)
+    );
+
+    if (!selectedPdf) {
+      throw new Error("Selected PDF not found.");
+    }
+
+    const extractedText = await extractPdfText(selectedPdf);
+    questions = makeQuestionsFromText(
+      extractedText,
+      selectedPdf.subject || "PDF"
+    );
+  }
+
+  if (subject && subject !== "all") {
+    questions = questions.filter(question =>
+      String(question.subject || "").toLowerCase() ===
+      String(subject).toLowerCase()
+    );
+  }
+
+  if (difficulty && difficulty !== "all") {
+    questions = questions.filter(question =>
+      question.difficulty === difficulty
+    );
+  }
+
+  if (!questions.length) {
+    throw new Error("No questions found for this selection.");
+  }
+
+  return shuffle(questions).slice(0, count);
 }
 
-function answerQuestion(index) {
-  if(quizAnswered)return;
-  quizAnswered=true;
+function getSelectedQuizAnswer() {
+  const selected = document.querySelectorAll(
+    "#quizOptions input:checked"
+  );
 
-  const q=quizQuestions[quizIndex];
-  const chosen=q.o[index];
-  const correct=chosen===q.a;
+  return Array.from(selected).map(input => Number(input.value));
+}
 
-  const positive=+$("positiveMarks")?.value||1;
-  const negative=+$("negativeMarks")?.value||0;
+function renderMockQuestion() {
+  const question = quizQuestions[quizIndex];
 
-  if(correct) {
+  if (!question) return finishMock();
+
+  const questionContainer = $("quizQuestion");
+  const optionsContainer = $("quizOptions");
+  const feedbackContainer = $("quizFeedback");
+
+  if (questionContainer) {
+    questionContainer.textContent =
+      `${quizIndex + 1}. ${question.question}`;
+  }
+
+  if (feedbackContainer) feedbackContainer.innerHTML = "";
+
+  if (optionsContainer) {
+    const language = $("quizLanguage");
+    const languageValue = language ? language.value : "both";
+
+    optionsContainer.innerHTML = question.options.map((option, index) => {
+      return `
+        <label class="mock-option">
+          <input
+            type="${question.type === "multiple" ? "checkbox" : "radio"}"
+            name="mockAnswer"
+            value="${index}"
+          >
+          <span>${esc(option)}</span>
+        </label>
+      `;
+    }).join("");
+  }
+
+  const scoreElement = $("quizScore");
+  if (scoreElement) {
+    scoreElement.textContent =
+      `Question ${quizIndex + 1}/${quizQuestions.length} | Score: ${quizScore}`;
+  }
+
+  const nextButton = $("nextQuestionBtn");
+  if (nextButton) nextButton.textContent = "Submit Answer";
+}
+
+function submitMockAnswer() {
+  if (quizAnswered) {
+    quizIndex++;
+    quizAnswered = false;
+
+    if (quizIndex >= quizQuestions.length) {
+      finishMock();
+    } else {
+      renderMockQuestion();
+    }
+
+    return;
+  }
+
+  const question = quizQuestions[quizIndex];
+  if (!question) return;
+
+  const selected = getSelectedQuizAnswer();
+
+  if (!selected.length) {
+    toast("Please select an answer");
+    return;
+  }
+
+  const correctAnswers = Array.isArray(question.answers)
+    ? question.answers.map(Number).sort()
+    : [Number(question.answer)];
+
+  const givenAnswers = selected.slice().sort();
+
+  const correct =
+    correctAnswers.length === givenAnswers.length &&
+    correctAnswers.every((value, index) =>
+      value === givenAnswers[index]
+    );
+
+  if (correct) {
+    quizScore++;
     quizCorrect++;
-    quizScore+=positive;
   } else {
     quizWrong++;
-    quizScore-=negative;
   }
 
-  document.querySelectorAll("[data-answer]").forEach((b,j)=>{
-    b.disabled=true;
-    if(q.o[j]===q.a)b.classList.add("correct");
-    else if(j===index)b.classList.add("incorrect");
-  });
+  quizAnswered = true;
 
-  $("quizFeedback").innerHTML=`
-    <p class="${correct?"correct-text":"wrong-text"}">
-      ${correct?"Correct!":"Incorrect. Correct answer: "+esc(q.a)}
-    </p>
-    <p class="muted small">${esc(q.why)}</p>`;
+  const negativeElement = $("negativeMarking");
+  const negative = negativeElement
+    ? Number(negativeElement.value || 0)
+    : 0;
 
-  $("quizNext").disabled=false;
+  if (!correct && negative > 0) {
+    quizScore -= negative;
+  }
+
+  const optionsContainer = $("quizOptions");
+  if (optionsContainer) {
+    optionsContainer.querySelectorAll("input").forEach(input => {
+      input.disabled = true;
+    });
+  }
+
+  const feedback = $("quizFeedback");
+
+  if (feedback) {
+    feedback.innerHTML = `
+      <div class="mock-feedback">
+        <strong>${correct ? "Correct!" : "Incorrect"}</strong>
+        <p>${esc(question.explanation || "Review the correct answer.")}</p>
+        <p><strong>Tip:</strong> ${esc(question.tip || "Revise this topic.")}</p>
+      </div>
+    `;
+  }
+
+  const scoreElement = $("quizScore");
+  if (scoreElement) {
+    scoreElement.textContent =
+      `Score: ${quizScore} | Correct: ${quizCorrect} | Wrong: ${quizWrong}`;
+  }
+
+  const nextButton = $("nextQuestionBtn");
+  if (nextButton) nextButton.textContent = "Next Question";
 }
 
-function nextQuestion() {
-  if(!quizAnswered)return;
-  quizIndex++;
-  quizAnswered=false;
-  if(quizIndex<quizQuestions.length)showQuestion();
-  else finishMock();
+function finishMock() {
+  if (quizTimerInterval) {
+    clearInterval(quizTimerInterval);
+    quizTimerInterval = null;
+  }
+
+  const area = $("quizArea");
+
+  if (area) {
+    area.innerHTML = `
+      <div class="mock-result">
+        <h3>Mock Completed</h3>
+        <h2>${quizScore}</h2>
+        <p>Correct: ${quizCorrect}</p>
+        <p>Wrong: ${quizWrong}</p>
+        <p>Total Questions: ${quizQuestions.length}</p>
+        <button onclick="location.reload()">Refresh App</button>
+      </div>
+    `;
+  }
+
+  toast("Mock completed");
 }
 
-async function finishMock() {
-  clearInterval(quizTimerInterval);
+async function startStudyMock() {
+  try {
+    quizQuestions = await prepareMockQuestions();
+    quizIndex = 0;
+    quizScore = 0;
+    quizCorrect = 0;
+    quizWrong = 0;
+    quizAnswered = false;
+    quizSeconds = 0;
 
-  const total=quizQuestions.length;
-  const percent=total?Math.round(quizCorrect/total*100):0;
+    const area = $("quizArea");
+    if (area) area.style.display = "block";
 
-  await xput("history",{
-    id:uid(),
-    type:"mock",
-    title:"StudyVault Mock",
-    score:quizScore,
-    correct:quizCorrect,
-    wrong:quizWrong,
-    total,
-    percent,
-    date:Date.now()
-  });
+    renderMockQuestion();
 
-  $("quizArea").innerHTML=`
-    <div class="panel quiz-card">
-      <p class="eyebrow">MOCK COMPLETE</p>
-      <h2>${quizScore} Marks</h2>
-      <p class="muted">Accuracy: ${percent}%</p>
-      <p>Correct: ${quizCorrect} · Wrong: ${quizWrong} · Total: ${total}</p>
-      <button id="retryQuiz" class="primary full">Try another Mock</button>
-    </div>`;
+    const timerElement = $("quizTimer");
+    const seconds = timerElement
+      ? Number(timerElement.value || 0)
+      : 0;
 
-  $("retryQuiz").onclick=()=>$("startQuizBtn").click();
+    if (quizTimerInterval) clearInterval(quizTimerInterval);
 
-  await renderMockHistory();
-  await renderProgress();
-  toast("Mock result saved");
+    if (seconds > 0) {
+      let remaining = seconds * 60;
+
+      quizTimerInterval = setInterval(() => {
+        remaining--;
+
+        const timerDisplay = $("quizTimerDisplay");
+        if (timerDisplay) {
+          timerDisplay.textContent =
+            `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+        }
+
+        if (remaining <= 0) finishMock();
+      }, 1000);
+    }
+
+    toast("Mock started");
+  } catch (error) {
+    console.error(error);
+    toast(error.message || "Could not start Mock");
+  }
 }
 
-async function renderMockHistory() {
-  if(!$("mockHistory"))return;
 
-  const history=(await xall("history"))
-    .filter(x=>x.type==="mock")
-    .sort((a,b)=>b.date-a.date)
-    .slice(0,10);
+/* =========================================================
+   GLOBAL SEARCH
+========================================================= */
 
-  $("mockHistory").innerHTML=history.length
-    ? history.map(x=>`
-      <div class="task-item">
-        <div class="task-main">
-          <b>${esc(x.title)}</b>
-          <small>${x.correct}/${x.total} correct · ${x.percent}%</small>
-        </div>
-        <b>${x.score} marks</b>
-      </div>`).join("")
-    : '<div class="empty">Your Mock results will appear here.</div>';
-}
+async function searchStudyVault(query) {
+  const term = String(query || "").trim().toLowerCase();
+  if (!term) return [];
 
-/* REMINDERS */
+  const [videos, links, pdfs, notes, folders] = await Promise.all([
+    all("videos"),
+    all("links"),
+    xall("pdfs"),
+    xall("notes"),
+    all("folders")
+  ]);
 
-if($("saveReminderBtn")) {
-  $("saveReminderBtn").onclick=async()=>{
-    const enabled=$("reminderEnabled").checked;
-    const time=$("reminderTime").value;
+  const results = [];
 
-    if(enabled&&!time)return toast("Choose a reminder time");
+  const addMatches = (items, type) => {
+    for (const item of items) {
+      const title = String(
+        item.title || item.name || item.filename || ""
+      );
 
-    if(enabled&&"Notification" in window&&Notification.permission==="default") {
-      const permission=await Notification.requestPermission();
-      if(permission!=="granted") {
-        toast("Notification permission not granted");
+      if (title.toLowerCase().includes(term)) {
+        results.push({
+          id: item.id,
+          title,
+          type
+        });
       }
     }
+  };
 
-    await xput("settings",{
-      id:"reminder",
-      enabled,
-      time
+  addMatches(videos, "video");
+  addMatches(links, "youtube");
+  addMatches(pdfs, "pdf");
+  addMatches(notes, "note");
+  addMatches(folders, "folder");
+
+  return results;
+}
+
+async function renderSearchResults(query) {
+  const container = $("searchResults");
+  if (!container) return;
+
+  const results = await searchStudyVault(query);
+
+  if (!results.length) {
+    container.innerHTML = "<p>No results found.</p>";
+    return;
+  }
+
+  container.innerHTML = results.map(item => `
+    <div class="search-result">
+      <strong>${esc(item.title)}</strong>
+      <small>${esc(item.type)}</small>
+      <button data-search-type="${esc(item.type)}"
+              data-search-id="${esc(item.id)}">Open</button>
+    </div>
+  `).join("");
+
+  container.querySelectorAll("[data-search-type]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const type = button.dataset.searchType;
+      const id = button.dataset.searchId;
+
+      if (type === "video") await playVideo(id);
+      if (type === "youtube") await playYoutube(id);
+      if (type === "pdf") await openPdf(id);
+      if (type === "note") switchTab("notes");
+      if (type === "folder") await openFolder(id);
     });
-
-    toast("Reminder settings saved");
-  };
+  });
 }
 
-async function checkReminder() {
-  const setting=await reqP(extraStore("settings").get("reminder"));
-  if(!setting?.enabled||!setting.time)return;
 
-  const now=new Date();
-  const current=
-    `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+/* =========================================================
+   BACKUP AND RESTORE
+   Metadata backup only. Video/PDF file contents are not
+   included in this JSON backup.
+========================================================= */
 
-  const key="studyvault-reminder-"+todayKey();
-  if(current===setting.time&&!sessionStorage.getItem(key)) {
-    sessionStorage.setItem(key,"1");
+async function exportStudyVaultBackup() {
+  try {
+    const backup = {
+      app: "StudyVault",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      videos: await all("videos"),
+      folders: await all("folders"),
+      links: await all("links"),
+      tasks: await all("tasks"),
+      pdfs: (await xall("pdfs")).map(pdf => ({
+        id: pdf.id,
+        title: pdf.title,
+        name: pdf.name,
+        folderId: pdf.folderId
+      })),
+      notes: await xall("notes"),
+      bookmarks: await xall("bookmarks"),
+      history: await xall("history")
+    };
 
-    if("Notification" in window&&Notification.permission==="granted") {
-      new Notification("StudyVault",{body:"Your study reminder is here. Time to study!"});
-    } else {
-      toast("StudyVault reminder: Time to study!");
-    }
+    const blob = new Blob(
+      [JSON.stringify(backup, null, 2)],
+      { type: "application/json" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = "studyvault-backup.json";
+    anchor.click();
+
+    URL.revokeObjectURL(url);
+
+    toast("Metadata backup downloaded. Video/PDF files are not included.");
+  } catch (error) {
+    console.error(error);
+    toast("Backup failed");
   }
 }
 
-/* BACKUP AND RESTORE */
+async function restoreStudyVaultBackup(file) {
+  if (!file) return;
 
-function downloadFile(blob,name) {
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download=name;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-}
-
-async function exportBackup() {
-  const payload={
-    app:"StudyVault",
-    version:4,
-    exportedAt:new Date().toISOString(),
-    tasks:await all("tasks"),
-    folders:await all("folders"),
-    links:await all("links"),
-    settings:await reqP(store("settings").getAll()),
-    pdfs:await xall("pdfs"),
-    notes:await xall("notes"),
-    bookmarks:await xall("bookmarks"),
-    history:await xall("history"),
-    extraSettings:await xall("settings")
-  };
-
-  const serializable=JSON.parse(JSON.stringify(payload, (key,value)=>{
-    if(value instanceof Blob)return undefined;
-    return value;
-  }));
-
-  downloadFile(
-    new Blob([JSON.stringify(serializable,null,2)],{type:"application/json"}),
-    "studyvault-backup.json"
-  );
-
-  toast("Backup exported. Video and PDF file contents are not included.");
-}
-
-async function restoreBackup(file) {
   try {
-    const data=JSON.parse(await file.text());
+    const backup = JSON.parse(await file.text());
 
-    if(data.app!=="StudyVault") {
-      return toast("This is not a StudyVault backup");
+    if (backup.app !== "StudyVault") {
+      throw new Error("This is not a StudyVault backup.");
     }
 
-    if(!confirm("Restore this backup? Existing videos will remain untouched."))return;
+    const confirmRestore = confirm(
+      "Restore this backup? Existing records with matching IDs may be replaced."
+    );
 
-    for(const t of data.tasks||[])await put("tasks",t);
-    for(const f of data.folders||[])await put("folders",f);
-    for(const l of data.links||[])await put("links",l);
+    if (!confirmRestore) return;
 
-    for(const p of data.pdfs||[]) {
-      if(p.blob)await xput("pdfs",p);
+    for (const item of backup.folders || []) {
+      await put("folders", item);
     }
-    for(const n of data.notes||[])await xput("notes",n);
-    for(const b of data.bookmarks||[])await xput("bookmarks",b);
-    for(const h of data.history||[])await xput("history",h);
-    for(const s of data.extraSettings||[])await xput("settings",s);
 
-    await seedFolders();
-    await renderFolderControls();
-    await renderHome();
-    await renderTasks();
-    await renderPdfs();
-    await renderNotes();
-    await renderProgress();
+    for (const item of backup.videos || []) {
+      await put("videos", item);
+    }
 
-    toast("Backup restored. Existing videos were preserved.");
-  } catch(err) {
-    console.error(err);
-    toast("Could not restore this backup file");
+    for (const item of backup.links || []) {
+      await put("links", item);
+    }
+
+    for (const item of backup.tasks || []) {
+      await put("tasks", item);
+    }
+
+    for (const item of backup.notes || []) {
+      await xput("notes", item);
+    }
+
+    for (const item of backup.bookmarks || []) {
+      await xput("bookmarks", item);
+    }
+
+    for (const item of backup.history || []) {
+      await xput("history", item);
+    }
+
+    await refreshStudyVault();
+    toast("Backup restored");
+  } catch (error) {
+    console.error(error);
+    toast(error.message || "Restore failed");
   }
 }
 
-if($("exportBtn"))$("exportBtn").onclick=exportBackup;
-if($("settingsBtn"))$("settingsBtn").onclick=()=>$("settingsDialog").showModal();
-if($("closeSettings"))$("closeSettings").onclick=()=>$("settingsDialog").close();
-if($("exportSettingsBtn"))$("exportSettingsBtn").onclick=exportBackup;
 
-if($("restoreInput")) {
-  $("restoreInput").onchange=async e=>{
-    const file=e.target.files[0];
-    if(file)await restoreBackup(file);
-    e.target.value="";
-  };
-}
+/* =========================================================
+   REFRESH ALL APP CONTENT
+========================================================= */
 
-/* STARTUP */
-
-(async()=>{
+async function refreshStudyVault() {
   try {
-    db=await openDB();
-    extraDB=await openExtraDB();
-
-    await seedFolders();
     await renderFolderControls();
-    await renderHome();
-    await renderTasks();
-    await renderProgress();
     await renderVideos();
     await renderLinks();
     await renderPdfs();
     await renderNotes();
-    await renderMockHistory();
-
-    if($("reminderEnabled")) {
-      const setting=await reqP(extraStore("settings").get("reminder"));
-      if(setting) {
-        $("reminderEnabled").checked=!!setting.enabled;
-        $("reminderTime").value=setting.time||"";
-      }
-    }
-
-    await checkReminder();
-    setInterval(checkReminder,30000);
-
-    if("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-      navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    }
-
-  } catch(err) {
-    console.error("StudyVault startup error:",err);
-    toast("Storage could not be initialized. Reload the app.");
+    await renderTasks();
+    await renderHome();
+    await renderBookmarks();
+    await renderProgress();
+  } catch (error) {
+    console.error("Refresh error:", error);
   }
-})();
+}
+
+
+/* =========================================================
+   BUTTON AND INPUT CONNECTIONS
+========================================================= */
+
+function connectStudyVaultControls() {
+  const connect = (id, eventName, callback) => {
+    const element = $(id);
+    if (!element || element.dataset.svConnected === "yes") return;
+
+    element.addEventListener(eventName, callback);
+    element.dataset.svConnected = "yes";
+  };
+
+  connect("startQuizBtn", "click", startStudyMock);
+  connect("nextQuestionBtn", "click", submitMockAnswer);
+
+  connect("globalSearch", "input", event => {
+    renderSearchResults(event.target.value);
+  });
+
+  connect("backupBtn", "click", exportStudyVaultBackup);
+
+  connect("restoreInput", "change", event => {
+    const file = event.target.files && event.target.files[0];
+    if (file) restoreStudyVaultBackup(file);
+  });
+
+  connect("refreshAppBtn", "click", refreshStudyVault);
+}
+
+
+/* =========================================================
+   APP INITIALIZATION
+========================================================= */
+
+async function initializeStudyVault() {
+  try {
+    await openDB();
+    await openExtraDB();
+    await seedFolders();
+
+    connectStudyVaultControls();
+
+    await refreshStudyVault();
+
+    console.log("StudyVault initialized successfully");
+  } catch (error) {
+    console.error("StudyVault initialization error:", error);
+    toast("App initialization failed. Please reload.");
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener(
+    "DOMContentLoaded",
+    initializeStudyVault,
+    { once: true }
+  );
+} else {
+  initializeStudyVault();
+}
+
+
+/* =========================================================
+   END OF STUDYVAULT APP.JS
+========================================================= */
