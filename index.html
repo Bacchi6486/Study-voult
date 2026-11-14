@@ -348,6 +348,11 @@
     <div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div>
     <button id="closePlayer" class="icon-btn">✕</button>
   </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+  <button class="secondary" data-player-orientation="video:portrait">Portrait</button>
+  <button class="secondary" data-player-orientation="video:landscape">Landscape</button>
+  <button class="secondary" data-player-orientation="video:fullscreen">Full screen</button>
+</div>
   <video id="videoPlayer" controls playsinline></video>
   <p class="note">Playback position is remembered on this device.</p>
   <button id="deleteVideoBtn" class="danger full">Delete saved video</button>
@@ -357,6 +362,11 @@
   <div class="dialog-head">
     <div><b id="youtubePlayerTitle">YouTube video</b><small>Playing inside StudyVault</small></div>
     <button id="closeYoutube" class="icon-btn">✕</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+  <button class="secondary" data-player-orientation="youtube:portrait">Portrait</button>
+  <button class="secondary" data-player-orientation="youtube:landscape">Landscape</button>
+  <button class="secondary" data-player-orientation="youtube:fullscreen">Full screen</button>
   </div>
   <div id="youtubeThumbnailBox"></div>
   <div class="youtube-frame">
