@@ -1189,11 +1189,20 @@ function youtubeCardHTML(link, folders) {
     folder.id === (link.parentFolderId || child?.parentId)
   );
 
-  const isPlaylist = !!link.playlistId;
+  const parsedInfo = getYouTubeInfo(link.url || "");
 
-  const thumbnail = link.youtubeId
+  const playlistId =
+    link.playlistId || parsedInfo?.playlistId || null;
+
+  const isPlaylist =
+    !!playlistId || link.type === "playlist";
+
+  const videoId =
+    link.youtubeId || parsedInfo?.videoId || null;
+
+  const thumbnail = videoId
     ? `<img class="video-thumb youtube-thumb"
-        src="${youtubeThumb(link.youtubeId)}"
+        src="${youtubeThumb(videoId)}"
         alt="YouTube thumbnail"
         loading="lazy"
         onerror="this.style.display='none'">`
@@ -1202,11 +1211,12 @@ function youtubeCardHTML(link, folders) {
   return `
     <div class="video-item">
       ${thumbnail}
+
       <div class="video-meta">
         <b>${esc(link.title)}</b>
         <small>
           <span class="folder-tag">
-            ${esc(parent?.name || "Unsorted")} / Links
+            ${esc(parent?.name || "Aditya")} / Links
           </span>
           · ${isPlaylist ? "YouTube Playlist" : "YouTube Video"}
         </small>
@@ -1231,8 +1241,9 @@ function youtubeCardHTML(link, folders) {
       </div>
     </div>
   `;
-       }
-               
+     }
+
+        
 
 /* RENDER YOUTUBE LINKS */
 
@@ -1316,26 +1327,41 @@ async function playYoutube(id) {
       return;
     }
 
+    const parsedInfo = getYouTubeInfo(link.url || "");
+
+    const playlistId =
+      link.playlistId || parsedInfo?.playlistId || null;
+
+    const videoId =
+      link.youtubeId || parsedInfo?.videoId || null;
+
     let embedUrl = "";
 
-    if (link.playlistId) {
+    if (playlistId) {
       embedUrl =
         "https://www.youtube.com/embed/videoseries?list=" +
-        encodeURIComponent(link.playlistId) +
+        encodeURIComponent(playlistId) +
         "&rel=0&playsinline=1";
-    } else if (link.youtubeId) {
+      
+      link.playlistId = playlistId;
+      link.type = "playlist";
+
+    } else if (videoId) {
       embedUrl =
         "https://www.youtube.com/embed/" +
-        encodeURIComponent(link.youtubeId) +
+        encodeURIComponent(videoId) +
         "?rel=0&playsinline=1";
-    }
 
-    if (!embedUrl) {
+      link.youtubeId = videoId;
+      link.type = "video";
+
+    } else {
       toast("Invalid YouTube link");
       return;
     }
 
     link.lastWatched = Date.now();
+
     await put("links", link);
 
     const dialog = $("youtubeDialog");
@@ -1359,12 +1385,15 @@ async function playYoutube(id) {
 
     await saveHistory("youtube", link.id, link.title);
     await renderHome();
+    await renderLinks();
 
   } catch (error) {
     console.error("YouTube playback error:", error);
     toast("Could not open YouTube player");
   }
 }
+
+
 
 
 
