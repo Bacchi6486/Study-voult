@@ -1319,45 +1319,78 @@ async function renderLinks() {
 
 /* PLAY YOUTUBE INSIDE STUDYVAULT */
 
+
 async function playYoutube(id) {
-  const link = await reqP(store("links").get(id));
+  try {
+    const link = await reqP(store("links").get(id));
 
-  if (!link) {
-    toast("YouTube link not found");
-    return;
-  }
-
-  const embedUrl = youtubeEmbedUrl(link);
-
-  if (!embedUrl) {
-    toast("This YouTube link cannot be played here");
-    return;
-  }
-
-  link.lastWatched = Date.now();
-  await put("links", link);
-
-  const dialog = $("youtubeDialog");
-  const frame = $("youtubeFrame");
-
-  if (dialog && frame) {
-    if ($("youtubePlayerTitle")) {
-      $("youtubePlayerTitle").textContent = link.title;
+    if (!link) {
+      toast("YouTube link not found");
+      return;
     }
 
-    frame.src = embedUrl;
+    let embedUrl = null;
 
-    if (!dialog.open) {
-      dialog.showModal();
+    if (link.playlistId) {
+      const params = new URLSearchParams({
+        list: link.playlistId,
+        rel: "0",
+        playsinline: "1"
+      });
+
+      if (link.youtubeId) {
+        embedUrl =
+          "https://www.youtube-nocookie.com/embed/" +
+          encodeURIComponent(link.youtubeId) +
+          "?" + params.toString();
+      } else {
+        embedUrl =
+          "https://www.youtube-nocookie.com/embed/videoseries?" +
+          params.toString();
+      }
+    } else if (link.youtubeId) {
+      embedUrl =
+        "https://www.youtube-nocookie.com/embed/" +
+        encodeURIComponent(link.youtubeId) +
+        "?rel=0&playsinline=1";
     }
-  } else {
-    window.open(link.url, "_blank", "noopener,noreferrer");
-    return;
-  }
 
-  await saveHistory("youtube", link.id, link.title);
-  await renderHome();
+    if (!embedUrl) {
+      toast("Invalid YouTube video or playlist");
+      return;
+    }
+
+    link.lastWatched = Date.now();
+    await put("links", link);
+
+    const dialog = $("youtubeDialog");
+    const frame = $("youtubeFrame");
+
+    if (dialog && frame) {
+      if ($("youtubePlayerTitle")) {
+        $("youtubePlayerTitle").textContent =
+          link.title || "YouTube Playlist";
+      }
+
+      frame.src = embedUrl;
+
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else {
+      toast("YouTube player dialog is missing");
+      return;
+    }
+
+    await saveHistory("youtube", link.id, link.title);
+    await renderHome();
+
+  } catch (error) {
+    console.error("YouTube playback error:", error);
+    toast("Could not open YouTube player");
+  }
 }
+
 
 /* CLOSE YOUTUBE PLAYER */
 
