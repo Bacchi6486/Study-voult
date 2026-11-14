@@ -1179,6 +1179,7 @@ if ($("saveLinkBtn")) {
 
 /* YOUTUBE LINK CARD */
 
+
 function youtubeCardHTML(link, folders) {
   const child = folders.find(folder =>
     folder.id === link.folderId && folder.isLinks
@@ -1188,65 +1189,50 @@ function youtubeCardHTML(link, folders) {
     folder.id === (link.parentFolderId || child?.parentId)
   );
 
-  const isPlaylist = link.type === "playlist" && !link.youtubeId;
+  const isPlaylist = !!link.playlistId;
 
   const thumbnail = link.youtubeId
-    ? `<img
-         class="video-thumb youtube-thumb"
-         src="${youtubeThumb(link.youtubeId)}"
-         alt="YouTube thumbnail"
-         loading="lazy"
-         onerror="this.style.display='none'"
-       >`
+    ? `<img class="video-thumb youtube-thumb"
+        src="${youtubeThumb(link.youtubeId)}"
+        alt="YouTube thumbnail"
+        loading="lazy"
+        onerror="this.style.display='none'">`
     : `<div class="video-thumb">▶</div>`;
 
   return `
     <div class="video-item">
       ${thumbnail}
-
       <div class="video-meta">
         <b>${esc(link.title)}</b>
-
         <small>
           <span class="folder-tag">
             ${esc(parent?.name || "Unsorted")} / Links
           </span>
-          · ${isPlaylist ? "Playlist" : "YouTube"}
+          · ${isPlaylist ? "YouTube Playlist" : "YouTube Video"}
         </small>
       </div>
 
       <div class="video-actions">
-        <button
-          class="small-btn"
-          data-yplay="${esc(link.id)}"
-        >
+        <button class="small-btn" data-yplay="${esc(link.id)}">
           Play
         </button>
 
-        <button
-          class="small-btn"
-          data-ybookmark="${esc(link.id)}"
-        >
+        <button class="small-btn" data-ybookmark="${esc(link.id)}">
           ☆
         </button>
 
-        <button
-          class="small-btn"
-          data-yopen="${esc(link.id)}"
-        >
-          YouTube
+        <button class="small-btn" data-yopen="${esc(link.id)}">
+          ${isPlaylist ? "Open Full Playlist" : "YouTube"}
         </button>
 
-        <button
-          class="small-btn danger-outline"
-          data-ydel="${esc(link.id)}"
-        >
+        <button class="small-btn danger-outline" data-ydel="${esc(link.id)}">
           ×
         </button>
       </div>
     </div>
   `;
-}
+       }
+               
 
 /* RENDER YOUTUBE LINKS */
 
@@ -1320,6 +1306,7 @@ async function renderLinks() {
 /* PLAY YOUTUBE INSIDE STUDYVAULT */
 
 
+
 async function playYoutube(id) {
   try {
     const link = await reqP(store("links").get(id));
@@ -1329,34 +1316,22 @@ async function playYoutube(id) {
       return;
     }
 
-    let embedUrl = null;
+    let embedUrl = "";
 
     if (link.playlistId) {
-      const params = new URLSearchParams({
-        list: link.playlistId,
-        rel: "0",
-        playsinline: "1"
-      });
-
-      if (link.youtubeId) {
-        embedUrl =
-          "https://www.youtube-nocookie.com/embed/" +
-          encodeURIComponent(link.youtubeId) +
-          "?" + params.toString();
-      } else {
-        embedUrl =
-          "https://www.youtube-nocookie.com/embed/videoseries?" +
-          params.toString();
-      }
+      embedUrl =
+        "https://www.youtube.com/embed/videoseries?list=" +
+        encodeURIComponent(link.playlistId) +
+        "&rel=0&playsinline=1";
     } else if (link.youtubeId) {
       embedUrl =
-        "https://www.youtube-nocookie.com/embed/" +
+        "https://www.youtube.com/embed/" +
         encodeURIComponent(link.youtubeId) +
         "?rel=0&playsinline=1";
     }
 
     if (!embedUrl) {
-      toast("Invalid YouTube video or playlist");
+      toast("Invalid YouTube link");
       return;
     }
 
@@ -1366,20 +1341,20 @@ async function playYoutube(id) {
     const dialog = $("youtubeDialog");
     const frame = $("youtubeFrame");
 
-    if (dialog && frame) {
-      if ($("youtubePlayerTitle")) {
-        $("youtubePlayerTitle").textContent =
-          link.title || "YouTube Playlist";
-      }
-
-      frame.src = embedUrl;
-
-      if (!dialog.open) {
-        dialog.showModal();
-      }
-    } else {
+    if (!dialog || !frame) {
       toast("YouTube player dialog is missing");
       return;
+    }
+
+    if ($("youtubePlayerTitle")) {
+      $("youtubePlayerTitle").textContent =
+        link.title || "YouTube Playlist";
+    }
+
+    frame.src = embedUrl;
+
+    if (!dialog.open) {
+      dialog.showModal();
     }
 
     await saveHistory("youtube", link.id, link.title);
@@ -1390,6 +1365,7 @@ async function playYoutube(id) {
     toast("Could not open YouTube player");
   }
 }
+
 
 
 /* CLOSE YOUTUBE PLAYER */
