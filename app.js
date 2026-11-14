@@ -991,7 +991,49 @@ if ($("videoPlayer")) {
     await renderProgress();
   };
 }
+/* PLAYER ORIENTATION CONTROLS */
 
+async function setStudyVaultPlayerMode(target, mode) {
+  const element = target === "youtube"
+    ? document.querySelector(".youtube-frame")
+    : $("videoPlayer");
+
+  if (!element) return;
+
+  try {
+    if (mode === "fullscreen") {
+      if (!document.fullscreenElement) {
+        await element.requestFullscreen();
+      }
+      return;
+    }
+
+    if (!document.fullscreenElement) {
+      await element.requestFullscreen();
+    }
+
+    if (screen.orientation?.lock) {
+      await screen.orientation.lock(
+        mode === "landscape" ? "landscape" : "portrait"
+      );
+    } else {
+      toast("Phone ka Auto-rotate ON karein");
+    }
+  } catch (error) {
+    console.warn(error);
+    toast("Auto-rotate ON karke phone ghumaiye");
+  }
+}
+
+document.querySelectorAll("[data-player-orientation]")
+.forEach(button => {
+  button.onclick = () => {
+    const [target, mode] =
+      button.dataset.playerOrientation.split(":");
+
+    setStudyVaultPlayerMode(target, mode);
+  };
+});
 /* CLOSE VIDEO PLAYER */
 
 if ($("closePlayer")) {
