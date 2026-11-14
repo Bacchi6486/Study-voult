@@ -1063,40 +1063,54 @@ if ($("deleteVideoBtn")) {
 
 function getYouTubeInfo(url) {
   try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    url = String(url || "").trim();
 
-    if (
-      host !== "youtube.com" &&
-      host !== "m.youtube.com" &&
-      host !== "youtu.be" &&
-      host !== "youtube-nocookie.com"
-    ) {
-      return null;
+    if (!url) return null;
+
+    if (!/^https?:\/\//i.test(url)) {
+      url = "https://" + url;
     }
+
+    const parsed = new URL(url);
+    const host = parsed.hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+
+    const allowedHosts = [
+      "youtube.com",
+      "m.youtube.com",
+      "music.youtube.com",
+      "youtu.be",
+      "youtube-nocookie.com"
+    ];
+
+    if (!allowedHosts.includes(host)) return null;
+
+    const parts = parsed.pathname
+      .split("/")
+      .filter(Boolean);
 
     let videoId = null;
     let playlistId = parsed.searchParams.get("list") || null;
 
     if (host === "youtu.be") {
-      videoId = parsed.pathname.split("/").filter(Boolean)[0] || null;
-    } else {
-      const parts = parsed.pathname.split("/").filter(Boolean);
-
-      if (parsed.pathname === "/watch") {
-        videoId = parsed.searchParams.get("v");
-      } else if (
-        ["embed", "shorts", "live", "v"].includes(parts[0])
-      ) {
-        videoId = parts[1] || null;
-      }
+      videoId = parts[0] || null;
+    } else if (parts[0] === "watch") {
+      videoId = parsed.searchParams.get("v");
+    } else if (
+      ["embed", "shorts", "live", "v"].includes(parts[0])
+    ) {
+      videoId = parts[1] || null;
     }
 
     if (videoId && !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
       videoId = null;
     }
 
-    if (playlistId && !/^[a-zA-Z0-9_-]+$/.test(playlistId)) {
+    if (
+      playlistId &&
+      !/^[a-zA-Z0-9_-]+$/.test(playlistId)
+    ) {
       playlistId = null;
     }
 
@@ -1105,43 +1119,14 @@ function getYouTubeInfo(url) {
     return {
       videoId,
       playlistId,
-      type: playlistId && !videoId ? "playlist" : "video"
+      type: playlistId ? "playlist" : "video"
     };
+
   } catch (error) {
     return null;
   }
 }
 
-function youtubeId(url) {
-  return getYouTubeInfo(url)?.videoId || null;
-}
-
-function youtubeThumb(id) {
-  return `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
-}
-
-function youtubeEmbedUrl(link) {
-  if (link.type === "playlist" && link.playlistId) {
-    return "https://www.youtube-nocookie.com/embed/videoseries?list=" +
-      encodeURIComponent(link.playlistId);
-  }
-
-  if (link.youtubeId) {
-    const params = new URLSearchParams({
-      rel: "0",
-      playsinline: "1"
-    });
-
-    if (link.playlistId) {
-      params.set("list", link.playlistId);
-    }
-
-    return "https://www.youtube-nocookie.com/embed/" +
-      encodeURIComponent(link.youtubeId) + "?" + params.toString();
-  }
-
-  return null;
-}
 
 /* SAVE YOUTUBE LINK */
 
