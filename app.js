@@ -1338,7 +1338,6 @@ async function renderLinks() {
 /* PLAY YOUTUBE INSIDE STUDYVAULT */
 
 
-
 async function playYoutube(id) {
   try {
     const link = await reqP(store("links").get(id));
@@ -1360,16 +1359,16 @@ async function playYoutube(id) {
 
     if (playlistId) {
       embedUrl =
-        "https://www.youtube.com/embed/videoseries?list=" +
+        "https://www.youtube-nocookie.com/embed/videoseries?list=" +
         encodeURIComponent(playlistId) +
-        "&rel=0&playsinline=1";
-      
+        "&rel=0&playsinline=1&autoplay=0";
+
       link.playlistId = playlistId;
       link.type = "playlist";
 
     } else if (videoId) {
       embedUrl =
-        "https://www.youtube.com/embed/" +
+        "https://www.youtube-nocookie.com/embed/" +
         encodeURIComponent(videoId) +
         "?rel=0&playsinline=1";
 
@@ -1382,7 +1381,6 @@ async function playYoutube(id) {
     }
 
     link.lastWatched = Date.now();
-
     await put("links", link);
 
     const dialog = $("youtubeDialog");
@@ -1393,10 +1391,8 @@ async function playYoutube(id) {
       return;
     }
 
-    if ($("youtubePlayerTitle")) {
-      $("youtubePlayerTitle").textContent =
-        link.title || "YouTube Playlist";
-    }
+    $("youtubePlayerTitle").textContent =
+      link.title || "YouTube Playlist";
 
     frame.src = embedUrl;
 
@@ -1413,8 +1409,6 @@ async function playYoutube(id) {
     toast("Could not open YouTube player");
   }
 }
-
-
 
 
 
