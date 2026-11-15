@@ -4064,10 +4064,13 @@ function svCreateMediaPanel(target, page) {
         ＋ Upload Video
       </button>
     </div>
-    <input type="file" accept=".pdf,application/pdf" multiple
-      data-sv-file="pdf" hidden>
-    <input type="file" accept="video/*,.mp4,.m4v,.mov,.webm,.avi,.mkv,.3gp"
-      multiple data-sv-file="video" hidden>
+   <input type="file" accept=".pdf,application/pdf" multiple
+  data-sv-file="pdf"
+  style="position:absolute;left:-9999px;">
+
+<input type="file" accept="video/*,.mp4,.m4v,.mov,.webm,.avi,.mkv,.3gp"
+  multiple data-sv-file="video"
+  style="position:absolute;left:-9999px;">
     <div class="video-list" data-sv-list>
       <div class="empty">No files added here yet.</div>
     </div>
