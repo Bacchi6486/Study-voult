@@ -4256,3 +4256,79 @@ if ($("courseContentHost")) {
 }
 
 /* ===== END UNIVERSAL UPLOAD SYSTEM ===== */
+
+/* ===== FIX PDF UPLOAD + NOTES SAVE ===== */
+
+/* Remove duplicate PDF upload panel */
+document.querySelector('#pdfs .sv-media-panel')?.remove();
+
+/* Fix PDF upload */
+if ($("pdfInput")) {
+  $("pdfInput").onchange = async function(event) {
+    const files = [...event.target.files];
+    const folderId = $("pdfFolder")?.value || null;
+    let saved = 0;
+
+    for (const file of files) {
+      if (file.type !== "application/pdf" &&
+          !file.name.toLowerCase().endsWith(".pdf")) {
+        continue;
+      }
+
+      try {
+        await xput("pdfs", {
+          id: uid(),
+          name: file.name,
+          folderId,
+          size: file.size,
+          blob: file,
+          added: Date.now(),
+          lastOpened: 0
+        });
+        saved++;
+      } catch (error) {
+        console.error("PDF upload error:", error);
+        toast("PDF upload failed. Storage check kijiye.");
+        break;
+      }
+    }
+
+    event.target.value = "";
+    await renderPdfs();
+    await renderHome();
+
+    toast(saved ? saved + " PDF uploaded successfully" : "PDF upload nahi hua");
+  };
+}
+
+/* Fix Notes: HTML uses noteBody, not noteContent */
+if ($("saveNoteBtn")) {
+  $("saveNoteBtn").onclick = async function() {
+    const title = $("noteTitle")?.value.trim() || "";
+    const content = $("noteBody")?.value.trim() || "";
+    const folderId = $("noteFolder")?.value || null;
+
+    if (!title || !content) {
+      toast("Note title aur content likhiye");
+      return;
+    }
+
+    await xput("notes", {
+      id: uid(),
+      title,
+      content,
+      folderId,
+      created: Date.now(),
+      updated: Date.now()
+    });
+
+    $("noteTitle").value = "";
+    $("noteBody").value = "";
+
+    await renderNotes();
+    await renderHome();
+    toast("Note saved successfully");
+  };
+}
+
+/* ===== END FIX ===== */
