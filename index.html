@@ -565,6 +565,10 @@ body { background:var(--sv-bg); }
   </div>
   <div class="section-head gap-top"><h2>My Notes</h2></div>
   <div id="notesList" class="video-list"></div>
+  <div class="section-head gap-top">
+  <h2>My PDF Library</h2>
+</div>
+<div id="currentAffairsPdfList" class="video-list"></div>
 </section>
 
 <!-- PLANNER -->
@@ -650,7 +654,14 @@ body { background:var(--sv-bg); }
       </select>
     </label>
     <label>Language<select id="quizLanguage"><option value="en">English</option><option value="hi">Hindi</option></select></label>
-    <label>Difficulty<select id="quizDifficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+    <label>Difficulty
+  <select id="quizDifficulty">
+    <option value="all" selected>All</option>
+    <option value="easy">Easy</option>
+    <option value="medium">Medium</option>
+    <option value="hard">Hard</option>
+  </select>
+</label>
     <div class="form-grid">
       <label>Number of questions<select id="quizCount"><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></label>
       <label>Time (minutes)<input id="quizTimer" type="number" min="1" max="180" value="15"></label>
