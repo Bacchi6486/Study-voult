@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -629,7 +628,6 @@ body { background:var(--sv-bg); }
     <button id="saveReminderBtn" class="secondary full">Save Reminder</button>
   </div>
 </section>
-
 <!-- MOCK -->
 <section id="quiz" class="page">
   <div class="section-head">
@@ -661,7 +659,12 @@ body { background:var(--sv-bg); }
       <label>Correct marks<input id="positiveMarks" type="number" min="0" step=".25" value="1"></label>
       <label>Negative marks<input id="negativeMarks" type="number" min="0" step=".25" value=".25"></label>
     </div>
-    <label>Question types<select id="questionType"><option value="mcq">Multiple Choice</option><option value="truefalse">True / False</option><option value="multiple">Multiple Correct Answers</option><option value="mixed">Mixed Question Types</option></select></label>
+
+    <p class="muted small">
+      PDF Scan: Text PDF और scanned/image PDF दोनों पढ़ेगा।
+      चार विकल्प वाले MCQ बनेंगे, एक सही उत्तर के साथ।
+    </p>
+
     <label>Paste your notes<textarea id="quizNotes" rows="7" placeholder="Paste your notes here..."></textarea></label>
     <label>Select PDF for question generation<select id="quizPdf"><option value="">Choose a saved PDF</option></select></label>
     <button id="startQuizBtn" class="primary full">Create Mock Test</button>
@@ -760,6 +763,9 @@ body { background:var(--sv-bg); }
 </dialog>
 
 <div id="toast" role="status" class="toast"></div>
+
+<!-- OCR ENGINE FOR SCANNED PDF -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script src="app.js"></script>
 <script type="module" src="firebase-auth.js"></script>
