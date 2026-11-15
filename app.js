@@ -3981,3 +3981,278 @@ if ($("addFolderBtn")) {
 })();
 
 /* ===== END UPLOAD & COURSE FIX ===== */
+
+/* ===== STUDYVAULT UNIVERSAL PDF + VIDEO UPLOAD ===== */
+
+function svMediaContext(panel) {
+  const page = panel.dataset.svPage;
+
+  if (page === "notes") {
+    const category = panel.querySelector("[data-sv-category]").value;
+    return { key: category, name: category, folderId: null };
+  }
+
+  if (page === "quiz") {
+    const category = panel.querySelector("[data-sv-category]").value;
+    return { key: category, name: category, folderId: null };
+  }
+
+  if (page === "courses") {
+    const name = $("courseHeading")?.textContent.trim() || "";
+    return all("folders").then(folders => {
+      const folder = folders.find(f =>
+        !f.parentId && f.name.toLowerCase() === name.toLowerCase()
+      );
+      return {
+        key: "course-" + (folder?.id || "general"),
+        name: name || "Course",
+        folderId: folder?.id || null
+      };
+    });
+  }
+
+  const folderId = page === "videos"
+    ? $("uploadFolder")?.value || null
+    : $("pdfFolder")?.value || null;
+
+  return all("folders").then(folders => ({
+    key: page,
+    name: page === "videos" ? "Video Library" : "PDF Library",
+    folderId
+  }));
+}
+
+function svCreateMediaPanel(target, page) {
+  if (!target || target.querySelector(".sv-media-panel")) return;
+
+  const panel = document.createElement("div");
+  panel.className = "panel sv-media-panel";
+  panel.dataset.svPage = page;
+
+  let categoryControl = "";
+
+  if (page === "notes") {
+    categoryControl = `
+      <label>Section
+        <select data-sv-category>
+          <option value="current-affairs">Current Affairs</option>
+          <option value="mind-maps">Mind Maps</option>
+          <option value="notes">General Notes</option>
+        </select>
+      </label>`;
+  }
+
+  if (page === "quiz") {
+    categoryControl = `
+      <label>Section
+        <select data-sv-category>
+          <option value="mock">Mock Tests</option>
+          <option value="daily-quiz">Daily Quiz</option>
+        </select>
+      </label>`;
+  }
+
+  panel.innerHTML = `
+    <h3>PDF & Video Library</h3>
+    <p class="muted small">Upload and manage study material in this section.</p>
+    ${categoryControl}
+    <div class="form-grid">
+      <button class="secondary" type="button" data-sv-upload="pdf">
+        ＋ Upload PDF
+      </button>
+      <button class="secondary" type="button" data-sv-upload="video">
+        ＋ Upload Video
+      </button>
+    </div>
+    <input type="file" accept=".pdf,application/pdf" multiple
+      data-sv-file="pdf" hidden>
+    <input type="file" accept="video/*,.mp4,.m4v,.mov,.webm,.avi,.mkv,.3gp"
+      multiple data-sv-file="video" hidden>
+    <div class="video-list" data-sv-list>
+      <div class="empty">No files added here yet.</div>
+    </div>
+  `;
+
+  target.appendChild(panel);
+
+  panel.querySelectorAll("[data-sv-upload]").forEach(button => {
+    button.onclick = () => {
+      panel.querySelector(
+        `[data-sv-file="${button.dataset.svUpload}"]`
+      ).click();
+    };
+  });
+
+  panel.querySelectorAll("[data-sv-file]").forEach(input => {
+    input.onchange = async event => {
+      const kind = input.dataset.svFile;
+      const files = [...input.files];
+      const context = await svMediaContext(panel);
+      let saved = 0;
+
+      for (const file of files) {
+        try {
+          if (kind === "pdf") {
+            if (!/\.pdf$/i.test(file.name) &&
+                file.type !== "application/pdf") continue;
+
+            await xput("pdfs", {
+              id: uid(),
+              name: file.name,
+              folderId: context.folderId,
+              sectionKey: context.key,
+              sectionName: context.name,
+              size: file.size,
+              blob: file,
+              added: Date.now(),
+              lastOpened: 0
+            });
+          } else {
+            if (!file.type.startsWith("video/") &&
+                !/\.(mp4|m4v|mov|webm|avi|mkv|3gp)$/i.test(file.name)) {
+              continue;
+            }
+
+            await put("videos", {
+              id: uid(),
+              name: file.name,
+              subject: context.name,
+              folderId: context.folderId,
+              sectionKey: context.key,
+              sectionName: context.name,
+              size: file.size,
+              type: file.type || "video/mp4",
+              blob: file,
+              added: Date.now(),
+              position: 0,
+              lastWatched: 0,
+              completed: false
+            });
+          }
+
+          saved++;
+        } catch (error) {
+          console.error("StudyVault upload error:", error);
+          toast("Storage full or upload failed");
+          break;
+        }
+      }
+
+      input.value = "";
+
+      await svRenderMedia(panel);
+      await renderVideos();
+      await renderPdfs();
+      await renderHome();
+
+      if ($("quizPdf") && kind === "pdf") {
+        const pdfs = await xall("pdfs");
+        $("quizPdf").innerHTML =
+          '<option value="">Choose a saved PDF</option>' +
+          pdfs.map(pdf =>
+            `<option value="${esc(pdf.id)}">${esc(pdf.name)}</option>`
+          ).join("");
+      }
+
+      toast(saved
+        ? saved + " file(s) uploaded successfully"
+        : "No file uploaded. Check file format or storage.");
+    };
+  });
+
+  svRenderMedia(panel);
+}
+
+async function svRenderMedia(panel) {
+  const list = panel.querySelector("[data-sv-list]");
+  if (!list) return;
+
+  const context = await svMediaContext(panel);
+  const pdfs = await xall("pdfs");
+  const videos = await all("videos");
+
+  const items = [
+    ...pdfs.filter(x => x.sectionKey === context.key)
+      .map(x => ({ ...x, mediaType: "pdf" })),
+    ...videos.filter(x => x.sectionKey === context.key)
+      .map(x => ({ ...x, mediaType: "video" }))
+  ].sort((a, b) => (b.added || 0) - (a.added || 0));
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">No files added here yet.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => `
+    <div class="video-item">
+      <div class="video-thumb">${item.mediaType === "pdf" ? "PDF" : "▶"}</div>
+      <div class="video-meta">
+        <b>${esc(item.name)}</b>
+        <small>${item.mediaType === "pdf" ? "PDF document" : "Video"} · ${bytes(item.size || 0)}</small>
+      </div>
+      <div class="video-actions">
+        <button class="small-btn"
+          data-sv-open="${item.mediaType}"
+          data-sv-id="${esc(item.id)}">
+          Open
+        </button>
+        <button class="small-btn danger-outline"
+          data-sv-delete="${item.mediaType}"
+          data-sv-id="${esc(item.id)}">
+          Delete
+        </button>
+      </div>
+    </div>
+  `).join("");
+
+  list.querySelectorAll("[data-sv-open]").forEach(button => {
+    button.onclick = () => {
+      if (button.dataset.svOpen === "pdf") {
+        openPdf(button.dataset.svId);
+      } else {
+        playVideo(button.dataset.svId);
+      }
+    };
+  });
+
+  list.querySelectorAll("[data-sv-delete]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("Delete this file?")) return;
+
+      if (button.dataset.svDelete === "pdf") {
+        await xdel("pdfs", button.dataset.svId);
+      } else {
+        await del("videos", button.dataset.svId);
+      }
+
+      await svRenderMedia(panel);
+      await renderVideos();
+      await renderPdfs();
+      await renderHome();
+      toast("File deleted");
+    };
+  });
+}
+
+/* Add upload panels to the main library sections */
+["videos", "pdfs", "notes", "quiz"].forEach(page => {
+  const section = $(page);
+  if (section) svCreateMediaPanel(section, page);
+});
+
+/* Add upload panel inside each opened course category */
+if ($("courseContentHost")) {
+  const courseObserver = new MutationObserver(() => {
+    const host = $("courseContentHost");
+    if (host && host.children.length) {
+      svCreateMediaPanel(host, "courses");
+    }
+  });
+
+  courseObserver.observe($("courseContentHost"), {
+    childList: true,
+    subtree: false
+  });
+}
+
+/* ===== END UNIVERSAL UPLOAD SYSTEM ===== */
