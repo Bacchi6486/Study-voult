@@ -26,14 +26,30 @@
 </header>
 
 <main>
+
 <section class="hero">
-  <p class="eyebrow" id="todayLabel">YOUR STUDY SPACE</p>
-  <h1>Make today<br><span>count.</span></h1>
-  <p class="muted">Your lectures, notes, PDFs, mock tests and timetable in one place.</p>
-  <div class="stats">
-    <div class="stat"><b id="doneCount">0</b><span>Tasks done</span></div>
-    <div class="stat"><b id="videoCount">0</b><span>Videos saved</span></div>
-    <div class="stat"><b id="hoursCount">0m</b><span>Planned today</span></div>
+  <div class="welcome-top">
+    <div>
+      <p class="eyebrow" id="todayLabel">YOUR STUDY SPACE</p>
+      <h1>Welcome Back!</h1>
+      <p class="welcome-subtitle">Learn. Practice. Achieve.</p>
+    </div>
+    <div class="welcome-logo">AN</div>
+  </div>
+
+  <div class="welcome-stats">
+    <div class="stat">
+      <b id="doneCount">0</b>
+      <span>Tasks Done</span>
+    </div>
+    <div class="stat">
+      <b id="videoCount">0</b>
+      <span>Videos Saved</span>
+    </div>
+    <div class="stat">
+      <b id="hoursCount">0m</b>
+      <span>Planned Today</span>
+    </div>
   </div>
 </section>
 
@@ -47,20 +63,59 @@
   <button class="tab" data-tab="quiz">✦<span>Mock</span></button>
 </nav>
 
+
 <section id="home" class="page active">
+
   <div class="section-head">
     <div>
-      <p class="eyebrow">OVERVIEW</p>
-      <h2>Today's plan</h2>
+      <p class="eyebrow">YOUR STUDY SPACE</p>
+      <h2>Quick Access</h2>
     </div>
-    <button class="text-btn" data-go="planner">Edit plan →</button>
   </div>
-  <div id="todayTasks" class="task-list"></div>
+
+  <div class="quick-grid">
+    <button class="quick-card" data-go="videos">
+      <span>📚</span><b>Courses</b>
+    </button>
+    <button class="quick-card" data-go="notes">
+      <span>📰</span><b>Current Affairs</b>
+    </button>
+    <button class="quick-card" data-go="planner">
+      <span>📅</span><b>Schedule</b>
+    </button>
+    <button class="quick-card" data-go="pdfs">
+      <span>📄</span><b>PDF & Notes</b>
+    </button>
+    <button class="quick-card" data-go="videos">
+      <span>▶️</span><b>YouTube Links</b>
+    </button>
+    <button class="quick-card" data-go="quiz">
+      <span>📝</span><b>Mock Tests</b>
+    </button>
+    <button class="quick-card" data-go="quiz">
+      <span>⚡</span><b>Daily Quiz</b>
+    </button>
+    <button class="quick-card" data-go="notes">
+      <span>🧠</span><b>Mind Maps</b>
+    </button>
+    <button class="quick-card" data-go="progress">
+      <span>📊</span><b>Analytics</b>
+    </button>
+  </div>
+
+  <div class="section-head gap-top">
+    <div>
+      <p class="eyebrow">CONTINUE LEARNING</p>
+      <h2>Recently Watched</h2>
+    </div>
+    <button class="text-btn" data-go="videos">View all →</button>
+  </div>
+  <div id="recentVideos" class="video-list"></div>
 
   <div class="section-head gap-top">
     <div>
       <p class="eyebrow">YOUR LIBRARY</p>
-      <h2>Subject folders</h2>
+      <h2>My Courses</h2>
     </div>
     <button class="text-btn" data-go="videos">Manage →</button>
   </div>
@@ -68,40 +123,46 @@
 
   <div class="section-head gap-top">
     <div>
-      <p class="eyebrow">PICK UP WHERE YOU LEFT</p>
-      <h2>Recently watched</h2>
+      <p class="eyebrow">TODAY</p>
+      <h2>Today's Schedule</h2>
     </div>
+    <button class="text-btn" data-go="planner">Edit →</button>
   </div>
-  <div id="recentlyWatched" class="video-list"></div>
+  <div id="todayTasks" class="task-list"></div>
 
   <div class="section-head gap-top">
     <div>
-      <p class="eyebrow">KEEP LEARNING</p>
-      <h2>Recently added</h2>
+      <p class="eyebrow">YOUR PERFORMANCE</p>
+      <h2>Study Progress</h2>
     </div>
-    <button class="text-btn" data-go="videos">All videos →</button>
+    <button class="text-btn" data-go="progress">Details →</button>
   </div>
-  <div id="recentVideos" class="video-list"></div>
 
-  <div class="section-head gap-top">
-    <div>
-      <p class="eyebrow">QUICK ACCESS</p>
-      <h2>Study summary</h2>
+  <div class="stats light-stats dashboard-stats">
+    <div class="stat">
+      <b id="totalStudyHours">0m</b>
+      <span>Watched Hours</span>
+    </div>
+    <div class="stat">
+      <b id="completedVideos">0</b>
+      <span>Completed Lectures</span>
+    </div>
+    <div class="stat">
+      <b id="totalVideos">0</b>
+      <span>Total Videos</span>
     </div>
   </div>
-  <div class="stats light-stats">
-    <div class="stat"><b id="homeStreak">0</b><span>Day streak</span></div>
-    <div class="stat"><b id="homePdfCount">0</b><span>PDFs</span></div>
-    <div class="stat"><b id="homeMockCount">0</b><span>Mocks taken</span></div>
-  </div>
+
   <div class="tip-card">
     <span>✦</span>
     <div>
-      <b>Small steps add up.</b>
-      <p>Plan a focused session, then mark it complete.</p>
+      <b>Keep your learning consistent.</b>
+      <p>Learn a little every day and track your progress.</p>
     </div>
   </div>
+
 </section>
+
 
 <section id="videos" class="page">
   <div class="section-head">
