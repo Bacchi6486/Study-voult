@@ -1836,39 +1836,119 @@ async function renderPdfs() {
 
 /* OPEN PDF */
 
+
+/* OPEN PDF USING PDF.JS */
+
 async function openPdf(id) {
-  const pdf = await reqP(extraStore("pdfs").get(id));
+  try {
+    const pdf = await reqP(extraStore("pdfs").get(id));
 
-  if (!pdf || !pdf.blob) {
-    toast("PDF file not found");
-    return;
+    if (!pdf || !pdf.blob) {
+      toast("PDF file not found");
+      return;
+    }
+
+    if (!window.pdfjsLib) {
+      toast("PDF.js load nahi hua. Internet check karein.");
+      return;
+    }
+
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    if ($("pdfTitle")) {
+      $("pdfTitle").textContent = pdf.name;
+    }
+
+    const viewer = $("pdfViewerPages");
+
+    if (!viewer) {
+      toast("PDF viewer missing");
+      return;
+    }
+
+    viewer.innerHTML =
+      '<p style="text-align:center;padding:20px;">PDF loading...</p>';
+
+    if ($("pdfDialog") && !$("pdfDialog").open) {
+      $("pdfDialog").showModal();
+    }
+
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    const data = await pdf.blob.arrayBuffer();
+
+    const documentTask = window.pdfjsLib.getDocument({
+      data: new Uint8Array(data)
+    });
+
+    const pdfDocument = await documentTask.promise;
+
+    viewer.innerHTML = "";
+
+    for (let pageNumber = 1;
+         pageNumber <= pdfDocument.numPages;
+         pageNumber++) {
+
+      const page = await pdfDocument.getPage(pageNumber);
+
+      const baseViewport = page.getViewport({ scale: 1 });
+
+      const availableWidth = Math.max(
+        250,
+        viewer.clientWidth - 24
+      );
+
+      const scale = Math.min(
+        1.6,
+        availableWidth / baseViewport.width
+      );
+
+      const viewport = page.getViewport({ scale });
+
+      const wrapper = document.createElement("div");
+
+      wrapper.style.cssText =
+        "background:white;margin:0 auto 12px;padding:4px;" +
+        "max-width:900px;box-shadow:0 1px 5px #999;";
+
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      canvas.style.cssText = "display:block;width:100%;height:auto;";
+
+      wrapper.appendChild(canvas);
+      viewer.appendChild(wrapper);
+
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+    }
+
+    pdf.lastOpened = Date.now();
+    await xput("pdfs", pdf);
+
+    await saveHistory("pdf", pdf.id, pdf.name);
+
+  } catch (error) {
+    console.error("PDF open error:", error);
+
+    const viewer = $("pdfViewerPages");
+
+    if (viewer) {
+      viewer.innerHTML =
+        '<p style="padding:20px;color:#b00020;text-align:center;">' +
+        'PDF open nahi hua. File dobara check karein.</p>';
+    }
+
+    toast("PDF open nahi hua");
   }
-
-  pdf.lastOpened = Date.now();
-  await xput("pdfs", pdf);
-
-  if (currentPdfUrl) {
-    URL.revokeObjectURL(currentPdfUrl);
-  }
-
-  currentPdfUrl = URL.createObjectURL(pdf.blob);
-
-  if ($("pdfTitle")) {
-    $("pdfTitle").textContent = pdf.name;
-  }
-
-  if ($("pdfFrame")) {
-    $("pdfFrame").src = currentPdfUrl;
-  }
-
-  if ($("pdfDialog")) {
-    $("pdfDialog").showModal();
-  } else {
-    window.open(currentPdfUrl, "_blank");
-  }
-
-  await saveHistory("pdf", pdf.id, pdf.name);
 }
+
+/* CLOSE PDF */
 
 if ($("closePdf")) {
   $("closePdf").onclick = () => {
@@ -1880,15 +1960,11 @@ if ($("closePdf")) {
 
 if ($("pdfDialog")) {
   $("pdfDialog").onclose = () => {
-    if ($("pdfFrame")) {
-      $("pdfFrame").src = "";
-    }
+    const viewer = $("pdfViewerPages");
 
-    if (currentPdfUrl) {
-      URL.revokeObjectURL(currentPdfUrl);
+    if (viewer) {
+      viewer.innerHTML = "";
     }
-
-    currentPdfUrl = null;
   };
 }
 
@@ -3541,8 +3617,6 @@ async function restoreStudyVaultBackup(file) {
     toast(error.message || "Restore failed");
   }
 }
-
-
 /* =========================================================
    REFRESH ALL APP CONTENT
 ========================================================= */
@@ -3562,8 +3636,6 @@ async function refreshStudyVault() {
     console.error("Refresh error:", error);
   }
 }
-
-
 /* =========================================================
    BUTTON AND INPUT CONNECTIONS
 ========================================================= */
@@ -3626,7 +3698,26 @@ if (document.readyState === "loading") {
   initializeStudyVault();
 }
 
+/* REFRESH PDF LIST WHEN APP RETURNS */
 
+document.addEventListener("visibilitychange", () => {
+  if (
+    !document.hidden &&
+    extraDB &&
+    $("pdfs")?.classList.contains("active")
+  ) {
+    renderPdfs();
+  }
+});
+
+window.addEventListener("pageshow", () => {
+  if (
+    extraDB &&
+    $("pdfs")?.classList.contains("active")
+  ) {
+    renderPdfs();
+  }
+});
 /* =========================================================
    END OF STUDYVAULT APP.JS
 ========================================================= */
