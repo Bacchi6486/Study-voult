@@ -542,11 +542,12 @@ body { background:var(--sv-bg); }
   <div class="panel">
     <h3>Add PDF files</h3>
     <label>Subject folder<select id="pdfFolder"></select></label>
-    <label class="upload-card" for="pdfInput">
-      <span class="upload-icon">＋</span>
-      <span><b>Upload PDF</b><small>Select PDF files from your phone</small></span>
-    </label>
-    <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple hidden>
+    <button type="button" id="pdfUploadBtn" class="primary full">
+  ＋ Upload PDF
+</button>
+<input id="pdfInput" type="file"
+       accept=".pdf,application/pdf" multiple
+       style="position:absolute;left:-9999px;">
     <p class="note">PDF files are stored in this browser on this device.</p>
   </div>
   <div class="field-row"><input id="pdfSearch" type="search" placeholder="Search PDFs…"></div>
