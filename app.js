@@ -2859,14 +2859,20 @@ const studyVaultGK = [
    MOCK PDF TEXT EXTRACTION
 ========================================================= */
 
+
+/* =========================================================
+   MOCK PDF TEXT EXTRACTION + OCR SCAN
+========================================================= */
+
 async function extractPdfText(pdfRecord) {
   if (!pdfRecord || !pdfRecord.blob) return "";
 
   if (!window.pdfjsLib) {
-    throw new Error("PDF text reader is not available in this app.");
+    throw new Error("PDF reader is not available.");
   }
 
   const data = await pdfRecord.blob.arrayBuffer();
+
   const pdf = await window.pdfjsLib.getDocument({
     data: new Uint8Array(data)
   }).promise;
@@ -2882,29 +2888,139 @@ async function extractPdfText(pdfRecord) {
       .join(" ") + "\n";
   }
 
+  // Scanned PDF: use OCR when normal text is missing
+  if (text.replace(/\s/g, "").length < 80) {
+    if (!window.Tesseract) {
+      throw new Error("OCR engine load nahi hua. Internet check karke retry karein.");
+    }
+
+    const worker = await window.Tesseract.createWorker("eng+hin");
+
+    try {
+      let ocrText = "";
+
+      const maxPages = Math.min(pdf.numPages, 30);
+
+      for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.5 });
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise;
+
+        const result = await worker.recognize(canvas);
+        ocrText += (result.data.text || "") + "\n";
+
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+
+      text = ocrText;
+    } finally {
+      await worker.terminate();
+    }
+  }
+
+  if (text.replace(/\s/g, "").length < 30) {
+    throw new Error("PDF se readable text nahi mila.");
+  }
+
   return text;
 }
 
-function makeQuestionsFromText(textContent, subject) {
-  const sentences = textContent
-    .replace(/\s+/g, " ")
-    .split(/[।.!?]\s+/)
-    .map(sentence => sentence.trim())
-    .filter(sentence => sentence.length > 35 && sentence.length < 300);
 
-  return sentences.slice(0, 30).map((sentence, index) => ({
-    subject: subject || "Notes",
-    difficulty: "medium",
-    question: `इस कथन को पढ़ें / Read the following statement:\n\n${sentence}\n\nयह प्रश्न आपके नोट्स से बनाया गया है। / This is a practice question from your notes.`,
-    options: [
-      "True / सही",
-      "False / गलत"
-    ],
-    answer: 0,
-    explanation: "यह कथन आपके PDF/Notes के टेक्स्ट से लिया गया है। उत्तर की पुष्टि अपने मूल नोट्स से करें।",
-    tip: "अपने नोट्स के मुख्य तथ्य दोहराएँ।"
-  }));
+/* =========================================================
+   FOUR OPTION MCQ GENERATOR
+========================================================= */
+
+function makeQuestionsFromText(textContent, subject) {
+  const cleanText = String(textContent || "")
+    .replace(/\s+/g, " ")
+    .replace(/[•●▪]/g, " ");
+
+  const sentences = cleanText
+    .split(/[।.!?]\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 35 && s.length <= 350);
+
+  const stopWords = new Set([
+    "this", "that", "with", "from", "which",
+    "there", "their", "these", "those", "about",
+    "भारत", "और", "तथा", "इसके", "उसके",
+    "द्वारा", "लिए", "एक", "है", "था", "की",
+    "का", "के", "में", "पर", "को", "से"
+  ]);
+
+  const words = cleanText.match(/[\p{L}\p{N}]{3,}/gu) || [];
+
+  const candidates = [...new Set(
+    words.filter(word =>
+      !stopWords.has(word.toLowerCase()) &&
+      !/^\d+$/.test(word)
+    )
+  )];
+
+  const questions = [];
+  const used = new Set();
+
+  for (const sentence of sentences) {
+    if (questions.length >= 100) break;
+
+    const sentenceWords = sentence.match(/[\p{L}\p{N}]{3,}/gu) || [];
+
+    const answerWord = sentenceWords.find(word =>
+      candidates.includes(word) &&
+      !stopWords.has(word.toLowerCase())
+    );
+
+    if (!answerWord || used.has(answerWord.toLowerCase())) continue;
+
+    const distractors = candidates
+      .filter(word =>
+        word.toLowerCase() !== answerWord.toLowerCase() &&
+        !sentenceWords.some(w => w.toLowerCase() === word.toLowerCase())
+      );
+
+    if (distractors.length < 3) continue;
+
+    used.add(answerWord.toLowerCase());
+
+    const options = [
+      answerWord,
+      ...shuffle(distractors).slice(0, 3)
+    ];
+
+    const shuffledOptions = shuffle(options);
+
+    questions.push({
+      subject: subject || "PDF",
+      difficulty: "medium",
+      type: "mcq",
+      question:
+        "नीचे दिए गए कथन में रिक्त स्थान भरें / Fill in the blank:\n\n" +
+        sentence.replace(
+          new RegExp(answerWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+          "________"
+        ),
+      options: shuffledOptions,
+      answer: shuffledOptions.indexOf(answerWord),
+      explanation:
+        "सही उत्तर PDF के मूल पाठ से लिया गया है: " + answerWord,
+      tip: "PDF के संबंधित वाक्य को दोबारा पढ़ें।"
+    });
+  }
+
+  return questions;
 }
+
 
 
 /* =========================================================
