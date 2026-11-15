@@ -3770,3 +3770,214 @@ if (document.readyState === "loading") {
 
   console.log("StudyVault Courses update loaded");
 })();
+
+/* ===== STUDYVAULT UPLOAD & CUSTOM COURSE FIX ===== */
+
+/* VIDEO UPLOAD FIX */
+if ($("videoInput")) {
+  $("videoInput").onchange = async event => {
+    const files = [...event.target.files];
+    const folderId = $("uploadFolder")?.value || null;
+    const videoExt = /\.(mp4|m4v|mov|webm|avi|mkv|3gp)$/i;
+    let saved = 0;
+
+    for (const file of files) {
+      if (!file.type.startsWith("video/") && !videoExt.test(file.name)) continue;
+
+      try {
+        const folders = await all("folders");
+        const folder = folders.find(x => x.id === folderId);
+
+        await put("videos", {
+          id: uid(),
+          name: file.name,
+          subject: folder?.name || "Unsorted",
+          folderId,
+          size: file.size,
+          type: file.type || "video/mp4",
+          blob: file,
+          added: Date.now(),
+          position: 0,
+          lastWatched: 0,
+          completed: false
+        });
+        saved++;
+      } catch (error) {
+        console.error("Video upload error:", error);
+        toast("Video storage full or upload failed");
+        break;
+      }
+    }
+
+    event.target.value = "";
+    await renderVideos();
+    await renderHome();
+
+    toast(saved ? saved + " video(s) saved" : "Video not saved. Check file format or storage.");
+  };
+}
+
+/* PDF UPLOAD FIX */
+if ($("pdfInput")) {
+  $("pdfInput").onchange = async event => {
+    const files = [...event.target.files];
+    const folderId = $("pdfFolder")?.value || null;
+    let saved = 0;
+
+    for (const file of files) {
+      if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) continue;
+
+      try {
+        await xput("pdfs", {
+          id: uid(),
+          name: file.name,
+          folderId,
+          size: file.size,
+          blob: file,
+          added: Date.now(),
+          lastOpened: 0
+        });
+        saved++;
+      } catch (error) {
+        console.error("PDF upload error:", error);
+        toast("PDF storage full or upload failed");
+        break;
+      }
+    }
+
+    event.target.value = "";
+    await renderPdfs();
+    await renderHome();
+
+    toast(saved ? saved + " PDF(s) saved" : "PDF not saved. Check file or storage.");
+  };
+}
+
+/* PDF VIEWER ID FIX */
+openPdf = async function(id) {
+  const pdf = await reqP(extraStore("pdfs").get(id));
+
+  if (!pdf || !pdf.blob) {
+    toast("PDF file not found");
+    return;
+  }
+
+  pdf.lastOpened = Date.now();
+  await xput("pdfs", pdf);
+
+  if (currentPdfUrl) URL.revokeObjectURL(currentPdfUrl);
+  currentPdfUrl = URL.createObjectURL(pdf.blob);
+
+  if ($("pdfViewerTitle")) $("pdfViewerTitle").textContent = pdf.name;
+  if ($("pdfViewer")) $("pdfViewer").src = currentPdfUrl;
+
+  if ($("pdfDialog")) $("pdfDialog").showModal();
+  else window.open(currentPdfUrl, "_blank");
+
+  await saveHistory("pdf", pdf.id, pdf.name);
+};
+
+if ($("closePdf")) {
+  $("closePdf").onclick = () => $("pdfDialog")?.close();
+}
+
+if ($("pdfDialog")) {
+  $("pdfDialog").onclose = () => {
+    if ($("pdfViewer")) $("pdfViewer").src = "about:blank";
+    if (currentPdfUrl) URL.revokeObjectURL(currentPdfUrl);
+    currentPdfUrl = null;
+  };
+}
+
+/* SHOW CUSTOM ROOT FOLDERS IN COURSES */
+async function renderCustomCourseSubjects() {
+  if (!db) return;
+
+  const host = $("customCourseSubjects");
+  if (!host) return;
+
+  const defaults = [
+    "Polity", "Economics", "Geography", "History",
+    "Physics", "Chemistry", "Biology"
+  ];
+
+  const folders = await all("folders");
+  const custom = folders.filter(folder =>
+    !folder.parentId &&
+    !folder.isLinks &&
+    !defaults.some(name => name.toLowerCase() === folder.name.toLowerCase())
+  );
+
+  host.innerHTML = custom.map(folder => `
+    <button class="course-subject" data-custom-course="${esc(folder.name)}">
+      <span><span class="course-icon">📁</span>${esc(folder.name)}</span>
+      <span>›</span>
+    </button>
+  `).join("");
+
+  host.querySelectorAll("[data-custom-course]").forEach(button => {
+    button.onclick = () => {
+      const template = document.querySelector("[data-course-subject]");
+      if (!template) return;
+
+      const oldName = template.dataset.courseSubject;
+      template.dataset.courseSubject = button.dataset.customCourse;
+      template.click();
+      template.dataset.courseSubject = oldName;
+    };
+  });
+}
+
+/* REFRESH COURSES AFTER ADDING A FOLDER */
+if ($("addFolderBtn")) {
+  $("addFolderBtn").onclick = async () => {
+    const name = $("newFolderName")?.value.trim();
+    if (!name) {
+      toast("Enter a folder name");
+      return;
+    }
+
+    const parentId = $("newFolderParent")?.value || null;
+    const folders = await all("folders");
+
+    if (folders.some(folder =>
+      folder.parentId === parentId &&
+      folder.name.toLowerCase() === name.toLowerCase() &&
+      !folder.isLinks
+    )) {
+      toast("Folder already exists here");
+      return;
+    }
+
+    const folder = {
+      id: uid(),
+      name,
+      parentId,
+      color: $("newFolderColor")?.value || "#9a8cff",
+      isDefault: false
+    };
+
+    await put("folders", folder);
+
+    if (!parentId) await ensureSubjectLinks(folder);
+
+    $("newFolderName").value = "";
+
+    await renderFolderControls();
+    await renderHome();
+    await renderCustomCourseSubjects();
+
+    toast("Folder created");
+  };
+}
+
+/* INITIAL COURSE REFRESH */
+(async function() {
+  for (let i = 0; i < 100 && (!db || !extraDB); i++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  if (db) await renderCustomCourseSubjects();
+})();
+
+/* ===== END UPLOAD & COURSE FIX ===== */
