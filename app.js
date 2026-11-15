@@ -1853,7 +1853,8 @@ async function openPdf(id) {
       return;
     }
 
-    "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
     if ($("pdfTitle")) {
       $("pdfTitle").textContent = pdf.name;
@@ -1971,12 +1972,12 @@ if ($("pdfDialog")) {
    NOTES
 ========================================================= */
 
-/* SAVE NOTE */
+/* SAVE NOTE - FIXED */
 
 if ($("saveNoteBtn")) {
   $("saveNoteBtn").onclick = async () => {
     const title = $("noteTitle")?.value.trim() || "";
-    const content = $("noteContent")?.value.trim() || "";
+    const content = $("noteBody")?.value.trim() || "";
     const folderId = $("noteFolder")?.value || null;
 
     if (!title || !content) {
@@ -1994,7 +1995,7 @@ if ($("saveNoteBtn")) {
     });
 
     $("noteTitle").value = "";
-    $("noteContent").value = "";
+    $("noteBody").value = "";
 
     await renderNotes();
     await renderHome();
@@ -2002,6 +2003,7 @@ if ($("saveNoteBtn")) {
     toast("Note saved");
   };
 }
+
 
 /* RENDER NOTES */
 
@@ -2087,6 +2089,7 @@ async function renderNotes() {
       await renderHome();
 
       toast("Note updated");
+await renderNotesPdfLibrary();
     };
   });
 
@@ -2112,6 +2115,46 @@ async function renderNotes() {
       if (note) {
         await addBookmark("note", note.id, note.title);
       }
+    };
+  });
+}
+
+/* SHOW SAVED PDFS ON NOTES / CURRENT AFFAIRS PAGE */
+
+async function renderNotesPdfLibrary() {
+  const host = $("currentAffairsPdfList");
+  if (!host) return;
+
+  const pdfs = (await xall("pdfs"))
+    .sort((a, b) => (b.added || 0) - (a.added || 0));
+
+  const folders = await all("folders");
+
+  host.innerHTML = pdfs.length
+    ? pdfs.map(pdf => pdfCardHTML(pdf, folders)).join("")
+    : '<div class="empty">No PDFs uploaded yet.</div>';
+
+  host.querySelectorAll("[data-pdf-open]").forEach(button => {
+    button.onclick = () => openPdf(button.dataset.pdfOpen);
+  });
+
+  host.querySelectorAll("[data-pdf-bookmark]").forEach(button => {
+    button.onclick = async () => {
+      const pdf = await reqP(
+        extraStore("pdfs").get(button.dataset.pdfBookmark)
+      );
+      if (pdf) await addBookmark("pdf", pdf.id, pdf.name);
+    };
+  });
+
+  host.querySelectorAll("[data-pdf-delete]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("Delete this PDF from StudyVault?")) return;
+
+      await xdel("pdfs", button.dataset.pdfDelete);
+      await renderNotesPdfLibrary();
+      await renderPdfs();
+      await renderHome();
     };
   });
 }
