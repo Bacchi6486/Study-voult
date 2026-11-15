@@ -744,12 +744,20 @@ body { background:var(--sv-bg); }
 </dialog>
 
 <!-- PDF VIEWER -->
+<!-- PDF VIEWER -->
 <dialog id="pdfDialog" class="player-dialog">
   <div class="dialog-head">
-    <div><b id="pdfTitle">PDF</b><small>StudyVault PDF Viewer</small></div>
+    <div>
+      <b id="pdfTitle">PDF</b>
+      <small>StudyVault PDF Viewer</small>
+    </div>
     <button id="closePdf" class="icon-btn">✕</button>
   </div>
-  <iframe id="pdfFrame" title="PDF viewer" style="width:100%;height:70vh;border:0;background:white"></iframe>
+
+  <div id="pdfViewerPages"
+       style="height:70vh;overflow-y:auto;background:#e8e8e8;padding:10px;">
+    <p style="text-align:center;color:#555;">PDF loading...</p>
+  </div>
 </dialog>
 
 <!-- SETTINGS -->
@@ -765,6 +773,7 @@ body { background:var(--sv-bg); }
 <div id="toast" role="status" class="toast"></div>
 
 <!-- OCR ENGINE FOR SCANNED PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script src="app.js"></script>
