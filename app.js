@@ -4332,3 +4332,12 @@ if ($("saveNoteBtn")) {
 }
 
 /* ===== END FIX ===== */
+/* PDF PICKER BUTTON FIX */
+const pdfUploadBtn = document.getElementById("pdfUploadBtn");
+const pdfInput = document.getElementById("pdfInput");
+
+if (pdfUploadBtn && pdfInput) {
+  pdfUploadBtn.addEventListener("click", () => {
+    pdfInput.click();
+  });
+}
