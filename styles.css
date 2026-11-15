@@ -451,3 +451,285 @@ details.folder-panel[open] summary{margin-bottom:12px}
 @media(min-width:520px){
   .home-folders{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+/* ===== STUDYVAULT NAVY + PURPLE + WHITE THEME ===== */
+
+:root {
+  --bg: #f7f7fc;
+  --panel: #ffffff;
+  --panel2: #eeeafd;
+  --text: #19172b;
+  --muted: #77748b;
+  --accent: #7658d6;
+  --accent2: #8a6ce5;
+  --line: #e5e1f1;
+  --danger: #d94e70;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  background: #111a3b;
+  color: #fff;
+  border-bottom: 1px solid #2b3560;
+}
+
+.brand-mark {
+  background: linear-gradient(135deg, #8d70ed, #c7baff);
+  color: #111a3b;
+}
+
+.brand small {
+  color: #d4d1e8;
+}
+
+.brand-mark img {
+  display: none;
+}
+
+.hero {
+  background: linear-gradient(125deg, #111a3b, #222b59 68%, #51418a);
+  color: #fff;
+  border-radius: 0 0 24px 24px;
+}
+
+.hero .muted {
+  color: #d8d8e8;
+}
+
+.hero .eyebrow {
+  color: #c5b6ff;
+}
+
+.hero h1 span {
+  color: #c5b6ff;
+}
+
+.stat {
+  background: #ffffff12;
+  border-color: #ffffff25;
+}
+
+.stat span {
+  color: #dedbed;
+}
+
+.tabs {
+  background: #fff;
+  border-color: var(--line);
+  box-shadow: 0 5px 18px #20164a0b;
+}
+
+.tab {
+  color: #77748b;
+}
+
+.tab.active {
+  background: #eeeafd;
+  color: #6547c4;
+}
+
+.panel,
+.task-item,
+.video-item,
+.progress-card,
+.folder-panel,
+.account-panel {
+  background: #fff;
+  border-color: var(--line);
+  box-shadow: 0 4px 16px #20164a08;
+}
+
+.text-btn,
+.eyebrow,
+.task-time,
+.quiz-progress {
+  color: #7658d6;
+}
+
+.tip-card {
+  background: linear-gradient(120deg, #eeeafd, #f8f6ff);
+  border-color: #ded5ff;
+  color: #211b3d;
+}
+
+.tip-card p {
+  color: #77748b;
+}
+
+input,
+select,
+textarea {
+  background: #fff;
+  color: #19172b;
+  border-color: #ded9ed;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #7658d644;
+  border-color: #7658d6;
+}
+
+.upload-card {
+  background: #f5f1ff;
+  border-color: #b6a5ed;
+}
+
+.upload-icon {
+  background: #7658d6;
+  color: #fff;
+}
+
+.primary {
+  background: linear-gradient(110deg, #7658d6, #9a80ec);
+  color: #fff;
+}
+
+.secondary,
+.small-btn {
+  background: #eeeafd;
+  border-color: #ded7f4;
+  color: #49358f;
+}
+
+.folder-chip {
+  background: #f8f7fc;
+  color: #68647c;
+  border-color: #e5e1f1;
+}
+
+.folder-chip.active {
+  background: #eeeafd;
+  border-color: #9b85e7;
+  color: #49358f;
+}
+
+.home-folder,
+.home-folder-card {
+  background: #fff;
+  color: #19172b;
+  border-color: #e5e1f1;
+}
+
+.home-folder small {
+  color: #77748b;
+}
+
+.subfolder-link {
+  background: #f7f5fc;
+  color: #68647c;
+  border-color: #e5e1f1;
+}
+
+.light-stats .stat {
+  background: #fff;
+  border-color: #e5e1f1;
+}
+
+.light-stats .stat span {
+  color: #77748b;
+}
+
+.progress-ring {
+  background: conic-gradient(#8a6ce5 0deg, #e7e2f3 0deg);
+}
+
+.progress-ring:before {
+  background: #fff;
+}
+
+.quiz-option {
+  background: #fff;
+  color: #19172b;
+  border-color: #e5e1f1;
+}
+
+.quiz-option.correct {
+  border-color: #7c65d5;
+  background: #f0ecff;
+}
+
+.quiz-option.incorrect {
+  border-color: #d94e70;
+  background: #fff0f3;
+}
+
+.correct-text {
+  color: #684bc5;
+}
+
+.wrong-text {
+  color: #d94e70;
+}
+
+.account-panel button {
+  background: #7658d6;
+  color: #fff;
+}
+
+.folder-content-tabs button {
+  background: #f7f5fc;
+  color: #68647c;
+  border-color: #e5e1f1;
+}
+
+.folder-content-tabs button.active {
+  background: #eeeafd;
+  border-color: #9b85e7;
+  color: #49358f;
+}
+
+.player-dialog,
+#settingsDialog {
+  background: #fff;
+  color: #19172b;
+  border-color: #e5e1f1;
+}
+
+.player-dialog::backdrop,
+#settingsDialog::backdrop {
+  background: #111a3bcc;
+}
+
+.empty {
+  border-color: #ded9ed;
+  color: #77748b;
+}
+
+.nested-folder-wrap .home-folder-card {
+  background: #f8f7fc;
+}
+
+.danger {
+  background: #d94e70;
+  color: #fff;
+}
+
+.danger-outline {
+  border-color: #d94e70;
+  color: #d94e70;
+  background: #fff0f3;
+}
+
+/* ===== MOBILE POLISH ===== */
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 420px) {
+  .hero h1 {
+    font-size: 32px;
+  }
+
+  .panel,
+  .task-item,
+  .video-item {
+    border-radius: 14px;
+  }
+}
