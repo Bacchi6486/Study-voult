@@ -1853,8 +1853,7 @@ async function openPdf(id) {
       return;
     }
 
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
     if ($("pdfTitle")) {
       $("pdfTitle").textContent = pdf.name;
