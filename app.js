@@ -3514,3 +3514,259 @@ if (document.readyState === "loading") {
 /* =========================================================
    END OF STUDYVAULT APP.JS
 ========================================================= */
+/* =========================================================
+   STUDYVAULT COURSES UPDATE
+   Existing database and existing features are preserved.
+========================================================= */
+
+(function () {
+  let selectedCourseFolder = null;
+  let selectedCourseModule = null;
+
+  const courseHost = document.getElementById("courseContentHost");
+  const courseSubjects = document.getElementById("courseSubjects");
+  const courseCategories = document.getElementById("courseCategories");
+  const courseHeading = document.getElementById("courseHeading");
+  const courseBack = document.getElementById("courseBack");
+  const selectedCourseName = document.getElementById("selectedCourseName");
+
+  if (!courseHost || !courseSubjects || !courseCategories) return;
+
+  const icons = {
+    videos: "▶️",
+    pdfs: "📄",
+    links: "🔗",
+    notes: "📝",
+    planner: "📅",
+    progress: "📊",
+    quiz: "✦"
+  };
+
+  const titles = {
+    videos: "Videos",
+    pdfs: "PDFs",
+    links: "YouTube Links",
+    notes: "Notes",
+    planner: "Planner",
+    progress: "Analytics",
+    quiz: "Mock"
+  };
+
+  function safeText(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;",
+      '"': "&quot;", "'": "&#39;"
+    })[c]);
+  }
+
+  function showCourseSubjects() {
+    selectedCourseFolder = null;
+    selectedCourseModule = null;
+
+    courseSubjects.hidden = false;
+    courseCategories.hidden = true;
+    courseHost.innerHTML = "";
+
+    courseHeading.textContent = "My Courses";
+    courseBack.hidden = true;
+  }
+
+  async function openCourseSubject(name) {
+    const folders = await all("folders");
+    const folder = folders.find(item =>
+      !item.parentId &&
+      !item.isLinks &&
+      item.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (!folder) {
+      toast("Course folder not found");
+      return;
+    }
+
+    selectedCourseFolder = folder;
+    selectedCourseModule = null;
+
+    courseSubjects.hidden = true;
+    courseCategories.hidden = false;
+    courseHost.innerHTML = "";
+
+    courseHeading.textContent = folder.name;
+    selectedCourseName.textContent = folder.name + " Study Material";
+    courseBack.hidden = false;
+  }
+
+  async function openCourseModule(module) {
+    if (!selectedCourseFolder) return;
+
+    selectedCourseModule = module;
+    courseHost.innerHTML = `
+      <div class="course-heading">
+        <h3>${icons[module] || ""} ${titles[module] || module}</h3>
+        <button class="course-back" id="courseModuleBack">← Categories</button>
+      </div>
+      <div id="courseModuleItems" class="video-list">
+        <p class="muted">Loading...</p>
+      </div>
+    `;
+
+    document.getElementById("courseModuleBack").onclick = () => {
+      selectedCourseModule = null;
+      courseHost.innerHTML = "";
+    };
+
+    await renderCourseModule();
+  }
+
+  async function renderCourseModule() {
+    const host = document.getElementById("courseModuleItems");
+    if (!host || !selectedCourseFolder || !selectedCourseModule) return;
+
+    const folderId = selectedCourseFolder.id;
+    const module = selectedCourseModule;
+    let items = [];
+
+    if (module === "videos") {
+      items = (await all("videos")).filter(x => x.folderId === folderId);
+    }
+
+    if (module === "links") {
+      const folders = await all("folders");
+      const linkFolder = folders.find(x =>
+        x.parentId === folderId && x.isLinks
+      );
+      items = (await all("links")).filter(x =>
+        x.folderId === (linkFolder ? linkFolder.id : folderId) ||
+        x.parentFolderId === folderId
+      );
+    }
+
+    if (module === "pdfs") {
+      items = (await xall("pdfs")).filter(x => x.folderId === folderId);
+    }
+
+    if (module === "notes") {
+      items = (await xall("notes")).filter(x => x.folderId === folderId);
+    }
+
+    if (module === "planner") {
+      items = (await all("tasks")).filter(x =>
+        String(x.subject || "").toLowerCase() ===
+        selectedCourseFolder.name.toLowerCase()
+      );
+    }
+
+    if (module === "progress") {
+      const videos = (await all("videos")).filter(x => x.folderId === folderId);
+      const completed = videos.filter(x => x.completed).length;
+      const seconds = videos.reduce((sum, x) =>
+        sum + Number(x.watchedSeconds || x.watchTime || 0), 0
+      );
+
+      host.innerHTML = `
+        <div class="dashboard-stats">
+          <div class="stat"><b>${videos.length}</b><span>Total Videos</span></div>
+          <div class="stat"><b>${completed}</b><span>Completed</span></div>
+          <div class="stat"><b>${Math.round(seconds / 60)}m</b><span>Watched</span></div>
+        </div>
+      `;
+      return;
+    }
+
+    if (module === "quiz") {
+      host.innerHTML = `
+        <div class="panel">
+          <h3>${safeText(selectedCourseFolder.name)} Mock Test</h3>
+          <p class="muted">Subject-wise practice test शुरू करने के लिए नीचे दबाएँ।</p>
+          <button class="primary full" id="courseStartMock">Start Mock Test</button>
+        </div>
+      `;
+
+      document.getElementById("courseStartMock").onclick = () => {
+        const subject = document.getElementById("quizSubject");
+        if (subject) subject.value = selectedCourseFolder.name;
+        switchTab("quiz");
+      };
+      return;
+    }
+
+    if (!items.length) {
+      host.innerHTML = `<div class="empty">No ${titles[module]} found in this course yet.</div>`;
+      return;
+    }
+
+    host.innerHTML = items.map(item => {
+      const title = safeText(item.title || item.name || item.filename || "Untitled");
+      const id = safeText(item.id);
+
+      let action = "";
+      if (module === "videos") {
+        action = `<button class="small-btn" data-course-play="${id}">Play</button>`;
+      } else if (module === "links") {
+        action = `<button class="small-btn" data-course-link="${id}">Open</button>`;
+      } else if (module === "pdfs") {
+        action = `<button class="small-btn" data-course-pdf="${id}">Read PDF</button>`;
+      } else if (module === "notes") {
+        action = `<button class="small-btn" data-course-note="${id}">View Note</button>`;
+      } else if (module === "planner") {
+        action = `<span class="muted small">${safeText(item.topic || item.title || "")}</span>`;
+      }
+
+      return `
+        <div class="video-item">
+          <div class="video-meta">
+            <b>${title}</b>
+            <small>${safeText(item.subject || selectedCourseFolder.name)}</small>
+          </div>
+          <div class="video-actions">${action}</div>
+        </div>
+      `;
+    }).join("");
+
+    host.querySelectorAll("[data-course-play]").forEach(button => {
+      button.onclick = () => playVideo(button.dataset.coursePlay);
+    });
+
+    host.querySelectorAll("[data-course-link]").forEach(button => {
+      button.onclick = () => playYoutube(button.dataset.courseLink);
+    });
+
+    host.querySelectorAll("[data-course-pdf]").forEach(button => {
+      button.onclick = () => openPdf(button.dataset.coursePdf);
+    });
+
+    host.querySelectorAll("[data-course-note]").forEach(button => {
+      button.onclick = () => {
+        const noteId = button.dataset.courseNote;
+        const note = items.find(x => String(x.id) === noteId);
+        if (note) {
+          alert((note.title || "Note") + "\n\n" + (note.content || note.text || ""));
+        }
+      };
+    });
+  }
+
+  document.querySelectorAll("[data-course-subject]").forEach(button => {
+    button.addEventListener("click", () => {
+      openCourseSubject(button.dataset.courseSubject);
+    });
+  });
+
+  document.querySelectorAll("[data-course-module]").forEach(button => {
+    button.addEventListener("click", () => {
+      openCourseModule(button.dataset.courseModule);
+    });
+  });
+
+  courseBack.addEventListener("click", showCourseSubjects);
+
+  document.querySelectorAll('[data-go="courses"]').forEach(button => {
+    button.addEventListener("click", showCourseSubjects);
+  });
+
+  document.querySelectorAll('[data-tab="home"]').forEach(button => {
+    button.addEventListener("click", showCourseSubjects);
+  });
+
+  console.log("StudyVault Courses update loaded");
+})();
