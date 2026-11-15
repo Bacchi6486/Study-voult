@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#10152b">
-<meta name="description" content="Your personal study library and planner.">
-<title>StudyVault</title>
+<meta name="theme-color" content="#111a3b">
+<meta name="description" content="Aditya Nishad Personal Study Space">
+<title>Aditya Nishad | Personal Study Space</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -16,8 +16,11 @@
 
 <header class="topbar">
   <div class="brand">
-    <div class="brand-mark"><img src="icon-192.png" alt="StudyVault icon"></div>
-    <div><strong>StudyVault</strong><small>Aditya Nishad personal study space</small></div>
+    <div class="brand-mark">AN</div>
+    <div>
+      <strong>Aditya Nishad</strong>
+      <small>Personal Study Space</small>
+    </div>
   </div>
   <button id="settingsBtn" class="icon-btn">⚙</button>
 </header>
@@ -46,30 +49,45 @@
 
 <section id="home" class="page active">
   <div class="section-head">
-    <div><p class="eyebrow">OVERVIEW</p><h2>Today's plan</h2></div>
+    <div>
+      <p class="eyebrow">OVERVIEW</p>
+      <h2>Today's plan</h2>
+    </div>
     <button class="text-btn" data-go="planner">Edit plan →</button>
   </div>
   <div id="todayTasks" class="task-list"></div>
 
   <div class="section-head gap-top">
-    <div><p class="eyebrow">YOUR LIBRARY</p><h2>Subject folders</h2></div>
+    <div>
+      <p class="eyebrow">YOUR LIBRARY</p>
+      <h2>Subject folders</h2>
+    </div>
     <button class="text-btn" data-go="videos">Manage →</button>
   </div>
   <div id="homeFolders" class="home-folders"></div>
 
   <div class="section-head gap-top">
-    <div><p class="eyebrow">PICK UP WHERE YOU LEFT</p><h2>Recently watched</h2></div>
+    <div>
+      <p class="eyebrow">PICK UP WHERE YOU LEFT</p>
+      <h2>Recently watched</h2>
+    </div>
   </div>
   <div id="recentlyWatched" class="video-list"></div>
 
   <div class="section-head gap-top">
-    <div><p class="eyebrow">KEEP LEARNING</p><h2>Recently added</h2></div>
+    <div>
+      <p class="eyebrow">KEEP LEARNING</p>
+      <h2>Recently added</h2>
+    </div>
     <button class="text-btn" data-go="videos">All videos →</button>
   </div>
   <div id="recentVideos" class="video-list"></div>
 
   <div class="section-head gap-top">
-    <div><p class="eyebrow">QUICK ACCESS</p><h2>Study summary</h2></div>
+    <div>
+      <p class="eyebrow">QUICK ACCESS</p>
+      <h2>Study summary</h2>
+    </div>
   </div>
   <div class="stats light-stats">
     <div class="stat"><b id="homeStreak">0</b><span>Day streak</span></div>
@@ -78,25 +96,39 @@
   </div>
   <div class="tip-card">
     <span>✦</span>
-    <div><b>Small steps add up.</b><p>Plan a focused session, then mark it complete.</p></div>
+    <div>
+      <b>Small steps add up.</b>
+      <p>Plan a focused session, then mark it complete.</p>
+    </div>
   </div>
 </section>
 
 <section id="videos" class="page">
   <div class="section-head">
-    <div><p class="eyebrow">YOUR LIBRARY</p><h2>Video lectures</h2></div>
+    <div>
+      <p class="eyebrow">YOUR LIBRARY</p>
+      <h2>Video lectures</h2>
+    </div>
   </div>
 
   <div class="folder-panel">
     <div class="folder-panel-head">
-      <div><b>Subject folders</b><small>Organise lectures and study material</small></div>
+      <div>
+        <b>Subject folders</b>
+        <small>Organise lectures and study material</small>
+      </div>
       <span>📁</span>
     </div>
+
     <div id="folderChips" class="folder-chips"></div>
 
     <div class="folder-tools">
-      <select id="folderFilter"><option value="all">All folders</option></select>
-      <select id="uploadFolder"><option value="">Unsorted</option></select>
+      <select id="folderFilter">
+        <option value="all">All folders</option>
+      </select>
+      <select id="uploadFolder">
+        <option value="">Unsorted</option>
+      </select>
     </div>
 
     <details class="folder-management">
@@ -109,8 +141,11 @@
           <option value="">Create in Home (top level)</option>
         </select>
       </div>
+
       <div class="folder-manage">
-        <select id="manageFolder"><option value="">Choose a folder to customise</option></select>
+        <select id="manageFolder">
+          <option value="">Choose a folder to customise</option>
+        </select>
         <input id="editFolderName" maxlength="40" placeholder="Rename selected folder">
         <input id="editFolderColor" type="color" value="#9a8cff">
         <button id="saveFolderBtn" class="small-btn">Save changes</button>
@@ -132,7 +167,10 @@
 
   <label class="upload-card" for="videoInput">
     <span class="upload-icon">＋</span>
-    <span><b>Add a lecture video</b><small>Choose a video stored on this phone</small></span>
+    <span>
+      <b>Add a lecture video</b>
+      <small>Choose a video stored on this phone</small>
+    </span>
     <span class="upload-arrow">↗</span>
   </label>
   <input id="videoInput" type="file" accept="video/*" multiple hidden>
@@ -140,15 +178,28 @@
   <div class="panel">
     <h3>Save a YouTube link</h3>
     <p class="muted small">Paste a YouTube video, Shorts, Live, Scheduled Live or Premiere URL.</p>
-    <label>Subject<select id="linkSubject"></select></label>
-    <label>Video title<input id="linkTitle" maxlength="100" placeholder="e.g. Fundamental Rights lecture"></label>
-    <label>YouTube URL<input id="youtubeUrl" type="url" placeholder="https://www.youtube.com/watch?v=..."></label>
+
+    <label>Subject
+      <select id="linkSubject"></select>
+    </label>
+
+    <label>Video title
+      <input id="linkTitle" maxlength="100" placeholder="e.g. Fundamental Rights lecture">
+    </label>
+
+    <label>YouTube URL
+      <input id="youtubeUrl" type="url" placeholder="https://www.youtube.com/watch?v=...">
+    </label>
+
     <button id="saveLinkBtn" class="primary full">＋ Save YouTube link</button>
     <p class="note">Unlisted videos may play inside StudyVault if embedding is allowed. Private videos require the correct Google/YouTube permissions. Some videos may need to open on YouTube.</p>
   </div>
 
   <div class="section-head gap-top">
-    <div><p class="eyebrow">SAVED YOUTUBE LINKS</p><h2>Subject links</h2></div>
+    <div>
+      <p class="eyebrow">SAVED YOUTUBE LINKS</p>
+      <h2>Subject links</h2>
+    </div>
   </div>
   <div id="linksList" class="video-list"></div>
 
@@ -161,18 +212,29 @@
 
 <section id="pdfs" class="page">
   <div class="section-head">
-    <div><p class="eyebrow">STUDY MATERIAL</p><h2>PDF Library</h2></div>
+    <div>
+      <p class="eyebrow">STUDY MATERIAL</p>
+      <h2>PDF Library</h2>
+    </div>
   </div>
+
   <div class="panel">
     <h3>Add PDF files</h3>
-    <label>Subject folder<select id="pdfFolder"></select></label>
+    <label>Subject folder
+      <select id="pdfFolder"></select>
+    </label>
+
     <label class="upload-card" for="pdfInput">
       <span class="upload-icon">＋</span>
-      <span><b>Upload PDF</b><small>Select PDF files from your phone</small></span>
+      <span>
+        <b>Upload PDF</b>
+        <small>Select PDF files from your phone</small>
+      </span>
     </label>
     <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple hidden>
     <p class="note">PDF files are stored in this browser on this device.</p>
   </div>
+
   <div class="field-row">
     <input id="pdfSearch" type="search" placeholder="Search PDFs…">
   </div>
@@ -181,106 +243,185 @@
 
 <section id="notes" class="page">
   <div class="section-head">
-    <div><p class="eyebrow">YOUR PERSONAL NOTES</p><h2>Notes Editor</h2></div>
+    <div>
+      <p class="eyebrow">YOUR PERSONAL NOTES</p>
+      <h2>Notes Editor</h2>
+    </div>
   </div>
+
   <div class="panel">
-    <label>Subject<select id="noteFolder"></select></label>
-    <label>Note title<input id="noteTitle" maxlength="120" placeholder="Enter note title"></label>
-    <label>Write your notes<textarea id="noteBody" rows="12" placeholder="Write or paste your study notes here..."></textarea></label>
+    <label>Subject
+      <select id="noteFolder"></select>
+    </label>
+
+    <label>Note title
+      <input id="noteTitle" maxlength="120" placeholder="Enter note title">
+    </label>
+
+    <label>Write your notes
+      <textarea id="noteBody" rows="12" placeholder="Write or paste your study notes here..."></textarea>
+    </label>
+
     <button id="saveNoteBtn" class="primary full">Save Note</button>
     <button id="exportNotePdfBtn" class="secondary full">Export Note as PDF</button>
   </div>
+
   <div class="section-head gap-top">
-    <div><p class="eyebrow">SAVED NOTES</p><h2>My Notes</h2></div>
+    <div>
+      <p class="eyebrow">SAVED NOTES</p>
+      <h2>My Notes</h2>
+    </div>
   </div>
   <div id="notesList" class="video-list"></div>
 </section>
 
 <section id="planner" class="page">
   <div class="section-head">
-    <div><p class="eyebrow">PLAN SMARTER</p><h2>Study planner</h2></div>
+    <div>
+      <p class="eyebrow">PLAN SMARTER</p>
+      <h2>Study planner</h2>
+    </div>
   </div>
+
   <div class="panel">
     <h3>Build your daily timetable</h3>
     <p class="muted small">StudyVault distributes pending tasks across your available time.</p>
+
     <div class="form-grid">
-      <label>Available hours<input id="availableHours" type="number" min="1" max="16" step=".5" value="4"></label>
-      <label>Start time<input id="startTime" type="time" value="07:00"></label>
+      <label>Available hours
+        <input id="availableHours" type="number" min="1" max="16" step=".5" value="4">
+      </label>
+      <label>Start time
+        <input id="startTime" type="time" value="07:00">
+      </label>
     </div>
+
     <button id="generateBtn" class="primary full">Generate my timetable</button>
   </div>
+
   <div class="section-head gap-top">
-    <div><p class="eyebrow">YOUR TASKS</p><h2>Study targets</h2></div>
-  </div>
-  <form id="taskForm" class="panel">
-    <label>Subject<input id="subjectInput" required maxlength="50" placeholder="e.g. Indian Polity"></label>
-    <label>Topic / task<input id="topicInput" required maxlength="90" placeholder="e.g. Fundamental Rights"></label>
-    <div class="form-grid">
-      <label>Duration (minutes)<input id="durationInput" type="number" min="5" max="600" value="60" required></label>
-      <label>Priority<select id="priorityInput"><option value="2">Normal</option><option value="3">High</option><option value="1">Low</option></select></label>
+    <div>
+      <p class="eyebrow">YOUR TASKS</p>
+      <h2>Study targets</h2>
     </div>
+  </div>
+
+  <form id="taskForm" class="panel">
+    <label>Subject
+      <input id="subjectInput" required maxlength="50" placeholder="e.g. Indian Polity">
+    </label>
+
+    <label>Topic / task
+      <input id="topicInput" required maxlength="90" placeholder="e.g. Fundamental Rights">
+    </label>
+
+    <div class="form-grid">
+      <label>Duration (minutes)
+        <input id="durationInput" type="number" min="5" max="600" value="60" required>
+      </label>
+      <label>Priority
+        <select id="priorityInput">
+          <option value="2">Normal</option>
+          <option value="3">High</option>
+          <option value="1">Low</option>
+        </select>
+      </label>
+    </div>
+
     <button class="primary full" type="submit">＋ Add study target</button>
   </form>
+
   <div id="plannerTasks" class="task-list"></div>
 </section>
 
 <section id="progress" class="page">
   <div class="section-head">
-    <div><p class="eyebrow">YOUR CONSISTENCY</p><h2>Analytics Dashboard</h2></div>
+    <div>
+      <p class="eyebrow">YOUR CONSISTENCY</p>
+      <h2>Analytics Dashboard</h2>
+    </div>
   </div>
+
   <div class="progress-card">
     <div class="progress-ring" id="progressRing">
-      <div><b id="progressPercent">0%</b><small>completed</small></div>
+      <div>
+        <b id="progressPercent">0%</b>
+        <small>completed</small>
+      </div>
     </div>
-    <div><h3 id="progressTitle">A fresh start</h3><p class="muted small" id="progressText">Add a study target to begin.</p></div>
+    <div>
+      <h3 id="progressTitle">A fresh start</h3>
+      <p class="muted small" id="progressText">Add a study target to begin.</p>
+    </div>
   </div>
+
   <div class="stats light-stats">
     <div class="stat"><b id="totalTasks">0</b><span>Total tasks</span></div>
     <div class="stat"><b id="completedTasks">0</b><span>Completed</span></div>
     <div class="stat"><b id="totalMinutes">0</b><span>Planned min</span></div>
   </div>
+
   <div class="stats light-stats">
     <div class="stat"><b id="analyticsStudyHours">0h</b><span>Watched hours</span></div>
     <div class="stat"><b id="analyticsStreak">0</b><span>Study streak</span></div>
     <div class="stat"><b id="analyticsMockAverage">0%</b><span>Mock average</span></div>
   </div>
+
   <div class="panel gap-top">
     <h3>Subject-wise Progress</h3>
     <div id="subjectAnalytics"></div>
   </div>
+
   <div class="panel">
     <h3>Weak Topics for Revision</h3>
     <div id="weakTopics"></div>
   </div>
+
   <div class="panel">
     <h3>Bookmarks</h3>
     <div id="bookmarkList"></div>
   </div>
+
   <div class="panel">
     <h3>Backup and Restore</h3>
     <p class="muted small">Export or restore your StudyVault data. Existing uploaded video files are not included in JSON backup.</p>
     <button id="exportBtn" class="secondary full">Export Backup (JSON)</button>
+
     <label class="upload-card" for="restoreInput">
       <span class="upload-icon">↥</span>
-      <span><b>Restore Backup</b><small>Select a StudyVault JSON backup</small></span>
+      <span>
+        <b>Restore Backup</b>
+        <small>Select a StudyVault JSON backup</small>
+      </span>
     </label>
     <input id="restoreInput" type="file" accept="application/json,.json" hidden>
   </div>
+
   <div class="panel">
     <h3>Revision Reminder</h3>
-    <label><input id="reminderEnabled" type="checkbox"> Enable study reminder</label>
-    <label>Reminder time<input id="reminderTime" type="time" value="19:00"></label>
+    <label>
+      <input id="reminderEnabled" type="checkbox">
+      Enable study reminder
+    </label>
+    <label>Reminder time
+      <input id="reminderTime" type="time" value="19:00">
+    </label>
     <button id="saveReminderBtn" class="secondary full">Save Reminder</button>
   </div>
 </section>
 
 <section id="quiz" class="page">
   <div class="section-head">
-    <div><p class="eyebrow">STUDYVAULT MOCK</p><h2>Mock Test Centre</h2></div>
+    <div>
+      <p class="eyebrow">ADITYA NISHAD MOCK</p>
+      <h2>Mock Test Centre</h2>
+    </div>
     <span class="pill">Practice mode</span>
   </div>
+
   <div class="panel">
     <p class="muted small">Create subject-wise or mixed practice tests from notes, PDFs or available questions.</p>
+
     <label>Question source
       <select id="quizSource">
         <option value="mixed">Notes + General Knowledge</option>
@@ -289,19 +430,27 @@
         <option value="pdf">Selected PDF</option>
       </select>
     </label>
+
     <label>Subject / topic
       <select id="quizSubject">
         <option value="mixed">Mixed</option>
-        <option>Polity</option><option>Economics</option><option>Geography</option>
-        <option>History</option><option>Physics</option><option>Chemistry</option><option>Biology</option>
+        <option>Polity</option>
+        <option>Economics</option>
+        <option>Geography</option>
+        <option>History</option>
+        <option>Physics</option>
+        <option>Chemistry</option>
+        <option>Biology</option>
       </select>
     </label>
+
     <label>Language
       <select id="quizLanguage">
         <option value="en">English</option>
         <option value="hi">Hindi</option>
       </select>
     </label>
+
     <label>Difficulty
       <select id="quizDifficulty">
         <option value="easy">Easy</option>
@@ -309,18 +458,31 @@
         <option value="hard">Hard</option>
       </select>
     </label>
+
     <div class="form-grid">
       <label>Number of questions
-        <select id="quizCount"><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select>
+        <select id="quizCount">
+          <option>5</option>
+          <option>10</option>
+          <option>15</option>
+          <option>25</option>
+          <option>50</option>
+        </select>
       </label>
       <label>Time (minutes)
         <input id="quizTimer" type="number" min="1" max="180" value="15">
       </label>
     </div>
+
     <div class="form-grid">
-      <label>Correct marks<input id="positiveMarks" type="number" min="0" step=".25" value="1"></label>
-      <label>Negative marks<input id="negativeMarks" type="number" min="0" step=".25" value=".25"></label>
+      <label>Correct marks
+        <input id="positiveMarks" type="number" min="0" step=".25" value="1">
+      </label>
+      <label>Negative marks
+        <input id="negativeMarks" type="number" min="0" step=".25" value=".25">
+      </label>
     </div>
+
     <label>Question types
       <select id="questionType">
         <option value="mcq">Multiple Choice</option>
@@ -329,13 +491,22 @@
         <option value="mixed">Mixed Question Types</option>
       </select>
     </label>
-    <label>Paste your notes<textarea id="quizNotes" rows="7" placeholder="Paste your notes here to generate practice questions..."></textarea></label>
-    <label>Select PDF for question generation
-      <select id="quizPdf"><option value="">Choose a saved PDF</option></select>
+
+    <label>Paste your notes
+      <textarea id="quizNotes" rows="7" placeholder="Paste your notes here to generate practice questions..."></textarea>
     </label>
+
+    <label>Select PDF for question generation
+      <select id="quizPdf">
+        <option value="">Choose a saved PDF</option>
+      </select>
+    </label>
+
     <button id="startQuizBtn" class="primary full">Create Mock Test</button>
   </div>
+
   <div id="quizArea"></div>
+
   <div class="panel">
     <h3>Mock Test History</h3>
     <div id="mockHistory"></div>
@@ -343,77 +514,95 @@
 </section>
 </main>
 
+<!-- VIDEO PLAYER -->
 <dialog id="playerDialog" class="player-dialog">
   <div class="dialog-head">
-    <div><b id="playerTitle">Lecture</b><small id="playerSubject"></small></div>
+    <div>
+      <b id="playerTitle">Lecture</b>
+      <small id="playerSubject"></small>
+    </div>
     <button id="closePlayer" class="icon-btn">✕</button>
   </div>
+
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
-  <button class="secondary" data-player-orientation="video:portrait">Portrait</button>
-  <button class="secondary" data-player-orientation="video:landscape">Landscape</button>
-  <button class="secondary" data-player-orientation="video:fullscreen">Full screen</button>
-</div>
+    <button class="secondary" data-player-orientation="video:portrait">Portrait</button>
+    <button class="secondary" data-player-orientation="video:landscape">Landscape</button>
+    <button class="secondary" data-player-orientation="video:fullscreen">Full screen</button>
+  </div>
+
   <video id="videoPlayer" controls playsinline></video>
   <p class="note">Playback position is remembered on this device.</p>
   <button id="deleteVideoBtn" class="danger full">Delete saved video</button>
 </dialog>
 
+<!-- YOUTUBE PLAYER AND PLAYLIST -->
 <dialog id="youtubeDialog" class="player-dialog">
   <div class="dialog-head">
-    <div><b id="youtubePlayerTitle">YouTube video</b><small>Playing inside StudyVault</small></div>
+    <div>
+      <b id="youtubePlayerTitle">YouTube video</b>
+      <small>Playing inside StudyVault</small>
+    </div>
     <button id="closeYoutube" class="icon-btn">✕</button>
   </div>
+
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
-  <button class="secondary" data-player-orientation="youtube:portrait">Portrait</button>
-  <button class="secondary" data-player-orientation="youtube:landscape">Landscape</button>
-  <button class="secondary" data-player-orientation="youtube:fullscreen">Full screen</button>
+    <button class="secondary" data-player-orientation="youtube:portrait">Portrait</button>
+    <button class="secondary" data-player-orientation="youtube:landscape">Landscape</button>
+    <button class="secondary" data-player-orientation="youtube:fullscreen">Full screen</button>
   </div>
+
   <div id="youtubeThumbnailBox"></div>
+
   <div class="youtube-frame">
     <iframe id="youtubeFrame" title="YouTube video player"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      allowfullscreen
+      referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
+
   <div id="youtubePlaylistPanel"
-     style="display:none;padding:12px;margin-top:12px;
-     border-radius:12px;background:var(--card,#202020);
-     color:var(--text,#fff);max-height:420px;overflow-y:auto;">
-
-  <h3 id="youtubePlaylistHeading">Playlist videos</h3>
-
-  <div id="youtubePlaylistStatus">
-    Loading playlist...
+    style="display:none;padding:12px;margin-top:12px;border-radius:12px;background:var(--card,#202020);color:var(--text,#fff);max-height:420px;overflow-y:auto;">
+    <h3 id="youtubePlaylistHeading">Playlist videos</h3>
+    <div id="youtubePlaylistStatus">Loading playlist...</div>
+    <div id="youtubePlaylistItems"></div>
   </div>
 
-  <div id="youtubePlaylistItems"></div>
-
-  </div>
   <p class="note">Some videos do not allow embedding. Private videos may require YouTube permissions or opening on YouTube.</p>
   <button id="openYoutubeBtn" class="secondary full">Open on YouTube</button>
 </dialog>
 
+<!-- PDF VIEWER -->
 <dialog id="pdfDialog" class="player-dialog">
   <div class="dialog-head">
-    <div><b id="pdfViewerTitle">PDF</b><small>StudyVault PDF Viewer</small></div>
+    <div>
+      <b id="pdfViewerTitle">PDF</b>
+      <small>StudyVault PDF Viewer</small>
+    </div>
     <button id="closePdf" class="icon-btn">✕</button>
   </div>
   <iframe id="pdfViewer" title="PDF viewer" style="width:100%;height:70vh;border:0;background:white"></iframe>
 </dialog>
 
+<!-- SETTINGS -->
 <dialog id="settingsDialog">
-  <div class="dialog-head"><b>StudyVault settings</b><button class="icon-btn" id="closeSettings">✕</button></div>
+  <div class="dialog-head">
+    <b>Personal Study Space settings</b>
+    <button class="icon-btn" id="closeSettings">✕</button>
+  </div>
   <p class="muted small">Your library is stored in this browser on this device. Do not clear browser data unless you have backed up your content.</p>
   <button id="exportSettingsBtn" class="secondary full">Export backup</button>
 </dialog>
 
+<!-- ACCOUNT -->
 <div class="account-panel">
-  <h3>StudyVault Account</h3>
+  <h3>Aditya Nishad Account</h3>
   <p id="accountStatus">Checking account...</p>
   <button id="accountAction">Sign in with Google</button>
   <p id="accountNote">Owner account</p>
 </div>
 
 <div id="toast" role="status" class="toast"></div>
+
 <script src="app.js"></script>
 <script type="module" src="firebase-auth.js"></script>
 </body>
